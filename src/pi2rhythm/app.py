@@ -50,6 +50,9 @@ class App:
         self.font_big = pygame.font.Font(None, max(44, settings.height // 11))
         self.font = pygame.font.Font(None, max(28, settings.height // 22))
         self.font_small = pygame.font.Font(None, max(22, settings.height // 30))
+        self.grade_font = pygame.font.Font(None, settings.height // 3)
+        self.pause_veil = pygame.Surface((settings.width, settings.height), pygame.SRCALPHA)
+        self.pause_veil.fill((4, 5, 14, 176))
         self.clock = pygame.time.Clock()
         self.events = EventQueue()
         self.rotary = None
@@ -65,8 +68,9 @@ class App:
         self.serial = SerialController(self.events, settings.serial_port, settings.serial_baud)
         self.index = 0
         self.state = "browse"
-        self.art_cache: dict[str, pygame.Surface] = {}
+        self.art_cache: dict[tuple[str, int], pygame.Surface] = {}
         self.started_at = 0.0
+        self.paused_total = 0.0
         self.scorer: ScoreKeeper | None = None
         self.play_targets: list[float] = []
         self.last_judgement: Judgement | None = None
@@ -83,7 +87,9 @@ class App:
         if self.state in ("paused", "prompt"):
             return self.pause_position
         value = pygame.mixer.music.get_pos()
-        return max(0.0, value / 1000.0) if value >= 0 else max(0.0, time.monotonic() - self.started_at)
+        if value >= 0:
+            return max(0.0, value / 1000.0)
+        return max(0.0, time.monotonic() - self.started_at - self.paused_total)
 
     def start_song(self) -> None:
         self.serial.set_pi_game(True)
@@ -91,6 +97,7 @@ class App:
         pygame.mixer.music.set_volume(self.settings.volume)
         pygame.mixer.music.play()
         self.started_at = time.monotonic()
+        self.paused_total = 0.0
         self.play_targets = self.song.play_targets()
         self.scorer = ScoreKeeper(self.play_targets, self.song.difficulty)
         self.last_judgement = None
@@ -117,6 +124,7 @@ class App:
     def resume_song(self) -> None:
         if self.state not in ("paused", "prompt"):
             return
+        self.paused_total += max(0.0, time.monotonic() - self.pause_started_at)
         pygame.mixer.music.unpause()
         self.pause_started_at = 0.0
         self.state = "play"
@@ -126,6 +134,7 @@ class App:
         self.serial.set_pi_game(False)
         self.pause_started_at = 0.0
         self.pause_position = 0.0
+        self.paused_total = 0.0
         self.state = "browse"
 
     def tap(self) -> None:
@@ -175,11 +184,11 @@ class App:
         return True
 
     def artwork(self, song: Song, size: int) -> pygame.Surface:
-        key = song.artwork or ""
+        key = (song.artwork or "", size)
         if key in self.art_cache:
             return self.art_cache[key]
         try:
-            image = pygame.image.load(key).convert()
+            image = pygame.image.load(key[0]).convert()
             image = pygame.transform.smoothscale(image, (size, size))
         except (pygame.error, FileNotFoundError, TypeError):
             image = pygame.Surface((size, size))
@@ -272,9 +281,7 @@ class App:
         elapsed = now - self.pause_started_at
         phase = pause_phase(elapsed)
         width, height = self.screen.get_size()
-        veil = pygame.Surface((width, height), pygame.SRCALPHA)
-        veil.fill((4, 5, 14, 176))
-        self.screen.blit(veil, (0, 0))
+        self.screen.blit(self.pause_veil, (0, 0))
         if phase == "prompt":
             self.state = "prompt"
             if int(elapsed * 2) % 2 == 0:
@@ -297,7 +304,7 @@ class App:
         grade = "A" if accuracy >= 93 else "B" if accuracy >= 85 else "C" if accuracy >= 75 else "D" if accuracy >= 60 else "F"
         title = self.text("RESULTS", self.font_big, (100, 218, 255))
         self.screen.blit(title, ((width - title.get_width()) // 2, 70))
-        grade_surface = pygame.font.Font(None, height // 3).render(grade, True, (252, 93, 165))
+        grade_surface = self.grade_font.render(grade, True, (252, 93, 165))
         self.screen.blit(grade_surface, ((width - grade_surface.get_width()) // 2, 145))
         lines = [f"SCORE  {points:07d}", f"HITS  {hits}     MISSES  {misses}", f"ACCURACY  {accuracy:.1f}%"]
         for number, line in enumerate(lines):

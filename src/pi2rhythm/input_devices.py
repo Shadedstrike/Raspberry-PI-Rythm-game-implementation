@@ -16,11 +16,16 @@ class InputEvent:
 
 
 class EventQueue:
-    def __init__(self) -> None:
-        self._events: queue.SimpleQueue[InputEvent] = queue.SimpleQueue()
+    def __init__(self, maxsize: int = 256) -> None:
+        # A broken/noisy encoder must never grow memory without bound during a
+        # multi-hour installation. Dropping stale input is safer than OOM.
+        self._events: queue.Queue[InputEvent] = queue.Queue(maxsize=maxsize)
 
     def put(self, kind: str, value: int = 0) -> None:
-        self._events.put(InputEvent(kind, value))
+        try:
+            self._events.put_nowait(InputEvent(kind, value))
+        except queue.Full:
+            pass
 
     def drain(self) -> list[InputEvent]:
         out: list[InputEvent] = []
@@ -45,6 +50,7 @@ class RotaryInput:
                              if start_button is not None else None)
         self.green_led = LED(green_led)
         self.red_led = LED(red_led)
+        self._light_state: tuple[str, bool] | None = None
         self.encoder.when_rotated_clockwise = lambda: events.put("move", 1)
         self.encoder.when_rotated_counter_clockwise = lambda: events.put("move", -1)
         self.button.when_pressed = lambda: events.put("select")
@@ -53,6 +59,10 @@ class RotaryInput:
         self.set_lights("browse")
 
     def set_lights(self, state: str, flash_on: bool = True) -> None:
+        requested = (state, flash_on if state == "prompt" else True)
+        if requested == self._light_state:
+            return
+        self._light_state = requested
         if state == "browse":
             self.green_led.on()
             self.red_led.off()
@@ -115,7 +125,7 @@ class SerialController:
             # number after a cable pull or controller reset.
             port = self._find_port(self.port_spec)
             if not port:
-                if time.monotonic() - last_warning > 5:
+                if time.monotonic() - last_warning > 30:
                     self.log("Controller serial: no device found (keyboard still works)")
                     last_warning = time.monotonic()
                 self._wake.wait(1.0)
@@ -148,7 +158,9 @@ class SerialController:
                             self.events.put(event.kind, event.value)
             except Exception as exc:
                 if not self.stop_event.is_set():
-                    self.log(f"Controller serial reconnecting: {exc}")
+                    if time.monotonic() - last_warning > 30:
+                        self.log(f"Controller serial reconnecting: {exc}")
+                        last_warning = time.monotonic()
                     self._wake.wait(1.0)
                     self._wake.clear()
 

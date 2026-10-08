@@ -26,6 +26,7 @@ dt = 20
 button = 16
 green_led = 19
 red_led = 13
+# REQUIRED: put a 220–330 ohm series resistor between each LED GPIO and +G/+R.
 bounce_ms = 12
 
 [start_button]

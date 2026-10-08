@@ -1,4 +1,4 @@
-from pi2rhythm.input_devices import parse_controller_line
+from pi2rhythm.input_devices import EventQueue, parse_controller_line
 
 
 def test_controller_press_line():
@@ -12,3 +12,9 @@ def test_release_and_noise_are_ignored():
     assert parse_controller_line("[BTN] GPIO 38 (idx 0) RELEASED") is None
     assert parse_controller_line("[INPUT] worst poll gap 2ms") is None
 
+
+def test_input_queue_is_bounded_under_noise():
+    events = EventQueue(maxsize=2)
+    for _ in range(10_000):
+        events.put("move", 1)
+    assert len(events.drain()) == 2

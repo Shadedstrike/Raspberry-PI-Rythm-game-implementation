@@ -22,9 +22,9 @@ table includes physical pin numbers so they cannot be confused.
 
 | Control connection | BCM GPIO | Physical pin |
 |---|---:|---:|
-| SparkFun `+R` | GPIO13 | 33 |
+| SparkFun `+R` through 220–330 Ω | GPIO13 | 33 |
 | Arcade button ground | GND | 34 |
-| SparkFun `+G` | GPIO19 | 35 |
+| SparkFun `+G` through 220–330 Ω | GPIO19 | 35 |
 | SparkFun `SW` | GPIO16 | 36 |
 | Arcade button signal | GPIO26 | 37 |
 | SparkFun encoder `B` | GPIO20 | 38 |
@@ -32,11 +32,11 @@ table includes physical pin numbers so they cannot be confused.
 | SparkFun encoder `A` | GPIO21 | 40 |
 
 `A` and `B` are the quadrature signals, `C` is their common contact, and `SW` is
-the shaft pushbutton. The SparkFun illuminated breakout exposes the red/green LED
-as `+R`, `+G`, and `GND`. Its onboard resistors make those LED pins suitable for
-GPIO drive; add appropriate series resistors if using the bare encoder instead of
-the SparkFun breakout. The shaft switch and the separate arcade button both act as
-start/pause controls.
+the shaft pushbutton. The R/G side of the SparkFun breakout exposes the common-cathode
+LED as `+R`, `+G`, and `GND`. The breakout only routes these signals: install a
+**220–330 Ω series resistor between each GPIO and `+R`/`+G`**. Never connect either
+LED pin directly to a Pi GPIO. The shaft switch and the separate arcade button both
+act as start/pause controls.
 
 Connect the ESP32-S3 controller to the Pi by USB. Add the runtime user to `dialout` if the serial port is not readable:
 
