@@ -32,20 +32,47 @@ class EventQueue:
 
 
 class RotaryInput:
-    def __init__(self, events: EventQueue, clk: int, dt: int, button: int, bounce_ms: int):
+    def __init__(self, events: EventQueue, clk: int, dt: int, button: int, bounce_ms: int,
+                 green_led: int, red_led: int, start_button: int | None = None,
+                 start_bounce_ms: int = 20):
         try:
-            from gpiozero import Button, RotaryEncoder
+            from gpiozero import Button, LED, RotaryEncoder
         except ImportError as exc:
             raise RuntimeError("gpiozero is not installed; disable [encoder] or install the gpio extra") from exc
         self.encoder = RotaryEncoder(clk, dt, max_steps=0, wrap=True)
         self.button = Button(button, pull_up=True, bounce_time=bounce_ms / 1000.0)
+        self.start_button = (Button(start_button, pull_up=True, bounce_time=start_bounce_ms / 1000.0)
+                             if start_button is not None else None)
+        self.green_led = LED(green_led)
+        self.red_led = LED(red_led)
         self.encoder.when_rotated_clockwise = lambda: events.put("move", 1)
         self.encoder.when_rotated_counter_clockwise = lambda: events.put("move", -1)
         self.button.when_pressed = lambda: events.put("select")
+        if self.start_button:
+            self.start_button.when_pressed = lambda: events.put("select")
+        self.set_lights("browse")
+
+    def set_lights(self, state: str, flash_on: bool = True) -> None:
+        if state == "browse":
+            self.green_led.on()
+            self.red_led.off()
+        elif state == "play":
+            self.green_led.on()
+            self.red_led.on()
+        elif state == "prompt":
+            self.green_led.value = flash_on
+            self.red_led.value = flash_on
+        else:
+            self.green_led.off()
+            self.red_led.on()
 
     def close(self) -> None:
         self.encoder.close()
         self.button.close()
+        if self.start_button:
+            self.start_button.close()
+        self.green_led.close()
+        self.red_led.close()
 
 
 BUTTON_LINE = re.compile(r"\[BTN\]\s+GPIO\s+(\d+)\s+\(idx\s+(\d+)\)\s+PRESSED")

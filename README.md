@@ -16,14 +16,27 @@ The scoring follows `pixel-perfect-revolt/src/rhythm_game.cpp`: difficulty 1–9
 
 ## Hardware
 
-Suggested BCM pin wiring (change in `config.toml`):
+The default wiring keeps every control connection in physical pins **33–40**, at
+the bottom end of the 40-pin Pi header. `config.toml` uses BCM GPIO numbers; the
+table includes physical pin numbers so they cannot be confused.
 
-| Encoder | Pi GPIO |
-|---|---:|
-| CLK/A | GPIO17 |
-| DT/B | GPIO27 |
-| push switch | GPIO22 |
-| common | GND |
+| Control connection | BCM GPIO | Physical pin |
+|---|---:|---:|
+| SparkFun `+R` | GPIO13 | 33 |
+| Arcade button ground | GND | 34 |
+| SparkFun `+G` | GPIO19 | 35 |
+| SparkFun `SW` | GPIO16 | 36 |
+| Arcade button signal | GPIO26 | 37 |
+| SparkFun encoder `B` | GPIO20 | 38 |
+| SparkFun encoder `C` and `GND` | GND | 39 |
+| SparkFun encoder `A` | GPIO21 | 40 |
+
+`A` and `B` are the quadrature signals, `C` is their common contact, and `SW` is
+the shaft pushbutton. The SparkFun illuminated breakout exposes the red/green LED
+as `+R`, `+G`, and `GND`. Its onboard resistors make those LED pins suitable for
+GPIO drive; add appropriate series resistors if using the bare encoder instead of
+the SparkFun breakout. The shaft switch and the separate arcade button both act as
+start/pause controls.
 
 Connect the ESP32-S3 controller to the Pi by USB. Add the runtime user to `dialout` if the serial port is not readable:
 
@@ -79,9 +92,15 @@ Analysis is intentionally conservative on RAM: 11.025 kHz mono audio and chunked
 Controls:
 
 - Encoder turn or arrow keys: previous/next song.
-- Encoder click or Enter: play/continue.
+- Encoder click, arcade button, or Enter: start/pause.
 - Any controller press or Space: rhythm tap.
 - Escape/Q: leave gameplay; press again in the browser to quit.
+
+Pressing start during a song pauses playback and begins a 30-second inactivity
+timer. Any encoder movement, encoder/arcade press, or controller-button press resumes
+the same song immediately. With no activity, `ARE YOU STILL EXTANT???` flashes for
+10 more seconds; after 40 total seconds the game stops the song, restores the
+controller synth, and returns to the browser.
 
 For kiosk boot, adjust `User=` and paths in `systemd/pi2-rhythm.service`, then:
 

@@ -21,8 +21,16 @@ baud = 115200
 [encoder]
 # BCM GPIO numbering. Set enabled=false for keyboard-only development.
 enabled = true
-clk = 17
-dt = 27
-button = 22
+clk = 21
+dt = 20
+button = 16
+green_led = 19
+red_led = 13
 bounce_ms = 12
 
+[start_button]
+# Separate arcade start/pause button, wired between GPIO26 (physical 37) and
+# GND (physical 34). The encoder shaft switch is a second start/pause control.
+enabled = true
+pin = 26
+bounce_ms = 20

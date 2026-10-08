@@ -25,7 +25,12 @@ class Settings:
     encoder_clk: int
     encoder_dt: int
     encoder_button: int
+    encoder_green_led: int
+    encoder_red_led: int
     encoder_bounce_ms: int
+    start_button_enabled: bool
+    start_button_pin: int
+    start_button_bounce_ms: int
 
 
 def _section(data: dict[str, Any], name: str) -> dict[str, Any]:
@@ -42,6 +47,7 @@ def load_settings(path: Path) -> Settings:
     audio = _section(raw, "audio")
     serial = _section(raw, "serial")
     encoder = _section(raw, "encoder")
+    start_button = _section(raw, "start_button")
 
     def local(value: str) -> Path:
         candidate = Path(value).expanduser()
@@ -59,8 +65,13 @@ def load_settings(path: Path) -> Settings:
         serial_port=str(serial.get("port", "auto")),
         serial_baud=int(serial.get("baud", 115200)),
         encoder_enabled=bool(encoder.get("enabled", True)),
-        encoder_clk=int(encoder.get("clk", 17)),
-        encoder_dt=int(encoder.get("dt", 27)),
-        encoder_button=int(encoder.get("button", 22)),
+        encoder_clk=int(encoder.get("clk", 21)),
+        encoder_dt=int(encoder.get("dt", 20)),
+        encoder_button=int(encoder.get("button", 16)),
+        encoder_green_led=int(encoder.get("green_led", 19)),
+        encoder_red_led=int(encoder.get("red_led", 13)),
         encoder_bounce_ms=int(encoder.get("bounce_ms", 12)),
+        start_button_enabled=bool(start_button.get("enabled", True)),
+        start_button_pin=int(start_button.get("pin", 26)),
+        start_button_bounce_ms=int(start_button.get("bounce_ms", 20)),
     )

@@ -14,6 +14,22 @@ from .model import Song
 from .scanner import load_library
 from .scoring import Judgement, ScoreKeeper
 
+PAUSE_SECONDS = 30.0
+EXTANT_PROMPT_SECONDS = 10.0
+
+
+def pause_phase(elapsed: float) -> str:
+    if elapsed >= PAUSE_SECONDS + EXTANT_PROMPT_SECONDS:
+        return "expired"
+    if elapsed >= PAUSE_SECONDS:
+        return "prompt"
+    return "paused"
+
+
+def progress_pixels(width: int, position: float, duration: float) -> int:
+    progress = max(0.0, min(1.0, position / max(0.1, duration)))
+    return round(width * progress)
+
 
 def clock_text(seconds: float) -> str:
     seconds = max(0, round(seconds))
@@ -40,7 +56,10 @@ class App:
         if settings.encoder_enabled:
             try:
                 self.rotary = RotaryInput(self.events, settings.encoder_clk, settings.encoder_dt,
-                                          settings.encoder_button, settings.encoder_bounce_ms)
+                                          settings.encoder_button, settings.encoder_bounce_ms,
+                                          settings.encoder_green_led, settings.encoder_red_led,
+                                          settings.start_button_pin if settings.start_button_enabled else None,
+                                          settings.start_button_bounce_ms)
             except RuntimeError as exc:
                 print(exc)
         self.serial = SerialController(self.events, settings.serial_port, settings.serial_baud)
@@ -48,18 +67,21 @@ class App:
         self.state = "browse"
         self.art_cache: dict[str, pygame.Surface] = {}
         self.started_at = 0.0
-        self.pause_accum = 0.0
         self.scorer: ScoreKeeper | None = None
         self.play_targets: list[float] = []
         self.last_judgement: Judgement | None = None
         self.judgement_at = 0.0
         self.final_stats: tuple[int, int, int, float] | None = None
+        self.pause_started_at = 0.0
+        self.pause_position = 0.0
 
     @property
     def song(self) -> Song:
         return self.songs[self.index]
 
     def position(self) -> float:
+        if self.state in ("paused", "prompt"):
+            return self.pause_position
         value = pygame.mixer.music.get_pos()
         return max(0.0, value / 1000.0) if value >= 0 else max(0.0, time.monotonic() - self.started_at)
 
@@ -73,6 +95,7 @@ class App:
         self.scorer = ScoreKeeper(self.play_targets, self.song.difficulty)
         self.last_judgement = None
         self.final_stats = None
+        self.pause_position = 0.0
         self.state = "play"
 
     def finish_song(self) -> None:
@@ -83,6 +106,28 @@ class App:
         self.serial.set_pi_game(False)
         self.state = "results"
 
+    def pause_song(self) -> None:
+        if self.state != "play":
+            return
+        self.pause_position = self.position()
+        pygame.mixer.music.pause()
+        self.pause_started_at = time.monotonic()
+        self.state = "paused"
+
+    def resume_song(self) -> None:
+        if self.state not in ("paused", "prompt"):
+            return
+        pygame.mixer.music.unpause()
+        self.pause_started_at = 0.0
+        self.state = "play"
+
+    def abandon_song(self) -> None:
+        pygame.mixer.music.stop()
+        self.serial.set_pi_game(False)
+        self.pause_started_at = 0.0
+        self.pause_position = 0.0
+        self.state = "browse"
+
     def tap(self) -> None:
         if self.state != "play" or not self.scorer:
             return
@@ -90,17 +135,22 @@ class App:
         self.judgement_at = time.monotonic()
 
     def handle_action(self, kind: str, value: int = 0) -> None:
+        # Any physical interaction proves the player is still present. Consume
+        # that input as resume-only so it cannot also score or change selection.
+        if self.state in ("paused", "prompt") and kind in ("move", "select", "tap"):
+            self.resume_song()
+            return
         if kind == "move" and self.state == "browse":
             self.index = (self.index + value) % len(self.songs)
         elif kind == "select":
-            if self.state in ("browse", "results"):
+            if self.state == "play":
+                self.pause_song()
+            elif self.state in ("browse", "results"):
                 self.start_song() if self.state == "browse" else setattr(self, "state", "browse")
         elif kind == "tap":
             self.tap()
         elif kind == "back":
-            pygame.mixer.music.stop()
-            self.serial.set_pi_game(False)
-            self.state = "browse"
+            self.abandon_song()
 
     def process_events(self) -> bool:
         for event in pygame.event.get():
@@ -192,11 +242,10 @@ class App:
             color = (97, 255, 173) if self.last_judgement.label != "MISS" else (255, 74, 93)
             label = self.text(self.last_judgement.label, self.font_big, color)
             self.screen.blit(label, (lane_x - label.get_width() / 2, hit_y + 45))
-        progress = max(0.0, min(1.0, pos / max(0.1, self.song.duration)))
         bar_height = max(16, height // 32)
         bar_y = height - bar_height
         pygame.draw.rect(self.screen, (26, 29, 48), (0, bar_y, width, bar_height))
-        filled_width = round(width * progress)
+        filled_width = progress_pixels(width, pos, self.song.duration)
         if filled_width > 0:
             stripe_width = max(18, width // 55)
             cyan = (43, 235, 255)
@@ -212,8 +261,34 @@ class App:
                     (stripe_x + bar_height, bar_y),
                 ])
             self.screen.set_clip(clip_before)
-        if (not pygame.mixer.music.get_busy() and pos > 0.5) or pos >= self.song.duration:
+        if self.state == "play" and ((not pygame.mixer.music.get_busy() and pos > 0.5)
+                                     or pos >= self.song.duration):
             self.finish_song()
+
+    def draw_paused(self) -> None:
+        # Draw the frozen playfield without invoking end-of-song detection.
+        self.draw_play()
+        now = time.monotonic()
+        elapsed = now - self.pause_started_at
+        phase = pause_phase(elapsed)
+        width, height = self.screen.get_size()
+        veil = pygame.Surface((width, height), pygame.SRCALPHA)
+        veil.fill((4, 5, 14, 176))
+        self.screen.blit(veil, (0, 0))
+        if phase == "prompt":
+            self.state = "prompt"
+            if int(elapsed * 2) % 2 == 0:
+                message = self.text("ARE YOU STILL EXTANT???", self.font_big, (43, 235, 255))
+                self.screen.blit(message, ((width - message.get_width()) // 2,
+                                           (height - message.get_height()) // 2))
+        elif phase == "expired":
+            self.abandon_song()
+            return
+        else:
+            remaining = max(0, math.ceil(PAUSE_SECONDS - elapsed))
+            message = self.text(f"PAUSED  {remaining}", self.font_big, (218, 48, 255))
+            self.screen.blit(message, ((width - message.get_width()) // 2,
+                                       (height - message.get_height()) // 2))
 
     def draw_results(self) -> None:
         self.draw_background()
@@ -240,8 +315,15 @@ class App:
                     self.draw_browser()
                 elif self.state == "play":
                     self.draw_play()
+                elif self.state in ("paused", "prompt"):
+                    self.draw_paused()
                 else:
                     self.draw_results()
+                if self.rotary:
+                    self.rotary.set_lights(
+                        self.state,
+                        flash_on=(int(time.monotonic() * 2) % 2 == 0),
+                    )
                 pygame.display.flip()
                 self.clock.tick(self.settings.fps)
         finally:
