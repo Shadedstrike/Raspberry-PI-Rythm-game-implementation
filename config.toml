@@ -1,0 +1,28 @@
+# Copy/edit this file for the cabinet. Paths may be relative to this file.
+music_dir = "/media/pi/RHYTHM/music"
+library_file = "library.json"
+cache_dir = ".cache"
+
+[display]
+width = 1280
+height = 720
+fullscreen = false
+fps = 60
+
+[audio]
+volume = 0.85
+
+[serial]
+# "auto" checks /dev/ttyACM* and /dev/ttyUSB*. Existing controller firmware
+# lines such as "[BTN] GPIO 38 (idx 0) PRESSED" become game taps.
+port = "auto"
+baud = 115200
+
+[encoder]
+# BCM GPIO numbering. Set enabled=false for keyboard-only development.
+enabled = true
+clk = 17
+dt = 27
+button = 22
+bounce_ms = 12
+

@@ -1,0 +1,16 @@
+[Unit]
+Description=Pi 2 Rhythm Visualizer
+After=graphical.target sound.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/pi2-rhythm-visualizer
+Environment=PYGAME_HIDE_SUPPORT_PROMPT=1
+ExecStart=/opt/pi2-rhythm-visualizer/.venv/bin/pi2-rhythm --config /opt/pi2-rhythm-visualizer/config.toml
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical.target
+
