@@ -3,7 +3,7 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-REPO_NAME="pi2-rhythm-visualizer"
+REPO_NAME="Raspberry-PI-Rythm-game-implementation"
 
 # The script lives in the repository in git, but is intended to be moved to
 # the repository's parent directory on the Pi.
