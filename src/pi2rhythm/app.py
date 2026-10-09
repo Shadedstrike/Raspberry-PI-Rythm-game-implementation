@@ -301,7 +301,9 @@ class App:
             # 20% larger again than the previously enlarged cover (62% larger
             # than the original), shifted upward to preserve the text area.
             art_size = min(round(width * 0.52 * 1.35 * 1.20), round(width * 0.88))
-            art_y = round(height * 0.09)
+            # Keep the square's upper corners inside the round aperture while
+            # lifting the entire browser stack (artwork and every text row).
+            art_y = round(height * 0.07)
             self.screen.blit(self.artwork(self.song, art_size), ((width - art_size) // 2, art_y))
             rows = [
                 (self.song.title, self.font_big, (239, 241, 255)),
