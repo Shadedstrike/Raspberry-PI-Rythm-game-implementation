@@ -48,11 +48,11 @@ class RotaryInput:
         self.button = Button(button, pull_up=True, bounce_time=bounce_ms / 1000.0)
         self.start_button = (Button(start_button, pull_up=True, bounce_time=start_bounce_ms / 1000.0)
                              if start_button is not None else None)
-        # The R/G/B/+ side is a common-anode LED: + goes to 3.3 V and GPIOs
-        # sink current, so logical ON is electrically LOW.
-        self.green_led = LED(green_led, active_high=False, initial_value=False)
-        self.red_led = LED(red_led, active_high=False, initial_value=False)
-        self.blue_led = LED(blue_led, active_high=False, initial_value=False)
+        # SparkFun's RGB encoder is common-cathode: its dedicated GND is shared
+        # by the LEDs and push switch, and each color GPIO sources current.
+        self.green_led = LED(green_led, active_high=True, initial_value=False)
+        self.red_led = LED(red_led, active_high=True, initial_value=False)
+        self.blue_led = LED(blue_led, active_high=True, initial_value=False)
         self._light_state: tuple[str, bool] | None = None
         # This breakout's installed A/B orientation reports a physical right
         # turn as gpiozero counter-clockwise. Map physical right to next (+1).
@@ -61,7 +61,7 @@ class RotaryInput:
         self.button.when_pressed = lambda: events.put("select")
         if self.start_button:
             self.start_button.when_pressed = lambda: events.put("select")
-        # Briefly prove each common-anode channel and its GPIO wiring at launch.
+        # Briefly prove each RGB channel and its GPIO wiring at launch.
         for led in (self.red_led, self.green_led, self.blue_led):
             led.on()
             time.sleep(0.12)

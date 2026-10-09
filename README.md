@@ -24,21 +24,21 @@ table includes physical pin numbers so they cannot be confused.
 |---|---:|---:|
 | RGB LED `B` through 220–330 Ω | GPIO12 | 32 |
 | RGB LED `R` through 220–330 Ω | GPIO13 | 33 |
-| Arcade button ground | GND | 34 |
+| Arcade button and RGB/switch common | GND | 34 |
 | RGB LED `G` through 220–330 Ω | GPIO19 | 35 |
 | SparkFun `SW` | GPIO16 | 36 |
 | Arcade button signal | GPIO26 | 37 |
 | SparkFun encoder `B` | GPIO20 | 38 |
 | SparkFun encoder `C` and `GND` | GND | 39 |
 | SparkFun encoder `A` | GPIO21 | 40 |
-| RGB LED `+` | 3.3 V | 1 |
+| RGB LED/switch common cathode | GND | 34 |
 
 `A` and `B` are the quadrature signals, `C` is their common contact, and `SW` is
-the shaft pushbutton. On the side labeled `R G SW B +`, the LED is common-anode:
-connect `+` to **3.3 V**, then connect each `R`, `G`, and LED `B` cathode to its GPIO
-through its own **220–330 Ω series resistor**. The GPIOs sink current, so the software
-uses active-low LED outputs. Do not confuse the LED `B` with the separate encoder `B`
-beside `A C B`. Never connect an LED color pin directly to a Pi GPIO. The shaft switch
+the shaft pushbutton. The SparkFun RGB encoder's LEDs and push switch have a
+separate common-cathode/GND connection; connect that to Pi **GND**, not 3.3 V.
+Connect each `R`, `G`, and LED `B` anode to its GPIO through its own **220–330 Ω
+series resistor**. Do not confuse the LED `B` with the separate encoder `B` beside
+`A C B`. Never connect an LED color pin directly to a Pi GPIO. The shaft switch
 and separate arcade button both act as start/pause controls.
 
 Connect the ESP32-S3 controller to the Pi by USB. Add the runtime user to `dialout` if the serial port is not readable:
