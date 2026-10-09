@@ -18,7 +18,7 @@ from .scoring import Judgement, ScoreKeeper
 
 PAUSE_SECONDS = 30.0
 EXTANT_PROMPT_SECONDS = 10.0
-MARQUEE_SPEED = 70.0
+MARQUEE_SPEED = 45.0
 RESULTS_SECONDS = 7.5
 
 
@@ -104,6 +104,11 @@ def marquee_position(elapsed: float, text_width: int, viewport_width: int,
     return -(phase * speed)
 
 
+def animation_step(frame_seconds: float, target_fps: int) -> float:
+    """Advance visual time without making a slow frame cause a catch-up jump."""
+    return max(0.0, min(frame_seconds, 1.0 / max(1, target_fps)))
+
+
 class App:
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -187,7 +192,8 @@ class App:
         self.next_controller_beat = 0
         self.pause_started_at = 0.0
         self.pause_position = 0.0
-        self.marquee_started_at = time.monotonic()
+        self.marquee_elapsed = 0.0
+        self.marquee_cache: dict[tuple[str, int, tuple[int, int, int]], pygame.Surface] = {}
 
     @property
     def song(self) -> Song:
@@ -292,7 +298,7 @@ class App:
             return
         if kind == "move" and self.state == "browse":
             self.index = (self.index + value) % len(self.songs)
-            self.marquee_started_at = time.monotonic()
+            self.marquee_elapsed = 0.0
         elif kind == "select":
             if self.state == "play":
                 self.pause_song()
@@ -356,13 +362,19 @@ class App:
     def draw_marquee(self, value: str, font: pygame.font.Font, color: tuple[int, int, int],
                      rect: pygame.Rect) -> None:
         """Center short text; smoothly pan long text inside the supplied bounds."""
-        surface = self.text(value, font, color)
+        cache_key = (value, id(font), color)
+        surface = self.marquee_cache.get(cache_key)
+        if surface is None:
+            surface = self.text(value, font, color)
+            self.marquee_cache[cache_key] = surface
+            if len(self.marquee_cache) > 16:
+                self.marquee_cache.pop(next(iter(self.marquee_cache)))
         if surface.get_width() <= rect.width:
             self.screen.blit(surface, (rect.centerx - surface.get_width() // 2, rect.y))
             return
         gap = 80
         offset = marquee_position(
-            time.monotonic() - self.marquee_started_at,
+            self.marquee_elapsed,
             surface.get_width(), rect.width, gap=gap,
         )
         old_clip = self.screen.get_clip()
@@ -542,7 +554,7 @@ class App:
     def draw_results(self) -> None:
         if self.results_started_at and results_expired(time.monotonic() - self.results_started_at):
             self.state = "browse"
-            self.marquee_started_at = time.monotonic()
+            self.marquee_elapsed = 0.0
             return
         self.draw_background()
         width, height = self.screen.get_size()
@@ -588,7 +600,8 @@ class App:
                 # revised later.
                 # self.apply_aperture_mask()
                 pygame.display.flip()
-                self.clock.tick(self.settings.fps)
+                frame_seconds = self.clock.tick(self.settings.fps) / 1000.0
+                self.marquee_elapsed += animation_step(frame_seconds, self.settings.fps)
         finally:
             self.serial.close()
             if self.rotary:

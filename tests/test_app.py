@@ -1,4 +1,5 @@
 from pi2rhythm.app import (
+    animation_step,
     album_art_size,
     aperture_chord,
     aperture_geometry,
@@ -100,3 +101,10 @@ def test_marquee_moves_one_way_and_wraps():
 
 def test_marquee_does_not_move_text_that_fits():
     assert marquee_position(100, 250, 300) == 0
+
+
+def test_marquee_animation_does_not_catch_up_after_a_slow_frame():
+    assert animation_step(1 / 60, 30) == 1 / 60
+    assert animation_step(1 / 30, 30) == 1 / 30
+    assert animation_step(0.25, 30) == 1 / 30
+    assert animation_step(-0.1, 30) == 0.0
