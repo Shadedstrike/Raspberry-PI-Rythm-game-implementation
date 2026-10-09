@@ -108,8 +108,9 @@ Controls:
 
 Pressing start during a song pauses playback and begins a 30-second inactivity
 timer. Any encoder movement, encoder/arcade press, or controller-button press resumes
-the same song immediately. With no activity, `ARE YOU STILL EXTANT???` flashes for
-10 more seconds; after 40 total seconds the game stops the song, restores the
+the same song immediately. With no activity, `STILL EXTANT??` and a smaller
+`press any button to continue` prompt flash for 10 more seconds; after 40 total
+seconds the game stops the song, restores the
 controller synth, and returns to the browser.
 
 ## Kiosk startup

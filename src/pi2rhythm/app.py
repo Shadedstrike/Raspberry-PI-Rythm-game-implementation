@@ -57,11 +57,17 @@ def clock_text(seconds: float) -> str:
 
 
 def marquee_position(elapsed: float, text_width: int, viewport_width: int,
-                     speed: float = MARQUEE_SPEED, gap: int = 80) -> float:
-    """Return a continuously wrapping left-to-right offset."""
+                     speed: float = MARQUEE_SPEED, gap: int = 80,
+                     pause_seconds: float = 1.0) -> float:
+    """Return a wrapping right-to-left offset with a pause between passes."""
     if text_width <= viewport_width:
         return 0.0
-    return (elapsed * speed) % (text_width + gap)
+    distance = text_width + gap
+    travel_seconds = distance / speed
+    phase = elapsed % (travel_seconds + pause_seconds)
+    if phase >= travel_seconds:
+        return 0.0
+    return -(phase * speed)
 
 
 class App:
@@ -244,6 +250,14 @@ class App:
             return self.art_cache[key]
         try:
             image = pygame.image.load(key[0]).convert()
+            source_width, source_height = image.get_size()
+            crop_size = min(source_width, source_height)
+            image = image.subsurface(pygame.Rect(
+                (source_width - crop_size) // 2,
+                (source_height - crop_size) // 2,
+                crop_size,
+                crop_size,
+            ))
             image = pygame.transform.smoothscale(image, (size, size))
         except (pygame.error, FileNotFoundError, TypeError):
             image = pygame.Surface((size, size))
@@ -274,7 +288,7 @@ class App:
         self.screen.set_clip(rect)
         period = surface.get_width() + gap
         self.screen.blit(surface, (rect.x + round(offset), rect.y))
-        self.screen.blit(surface, (rect.x + round(offset) - period, rect.y))
+        self.screen.blit(surface, (rect.x + round(offset) + period, rect.y))
         self.screen.set_clip(old_clip)
 
     def portrait_text_rect(self, y: int, line_height: int, margin: int = 45) -> pygame.Rect:
@@ -310,7 +324,7 @@ class App:
                 (self.song.title, self.font_big, (239, 241, 255)),
                 (self.song.artist, self.font, (158, 164, 194)),
                 (self.song.album, self.font_small, (117, 124, 158)),
-                (f"{clock_text(self.song.duration)}     {self.song.bpm:.0f} BPM", self.font, (239, 241, 255)),
+                (f"{clock_text(self.song.duration)}     {self.song.bpm:.0f} BPM", self.font_small, (239, 241, 255)),
                 (f"DIFFICULTY  {self.song.difficulty} / 9", self.font, (252, 93, 165)),
                 (f"{self.index + 1} / {len(self.songs)}", self.font_small, (239, 241, 255)),
                 ("TURN TO BROWSE  •  PRESS TO PLAY", self.font_small, (100, 218, 255)),
@@ -323,7 +337,7 @@ class App:
                                        self.portrait_text_rect(y, surface.get_height()))
                 else:
                     self.screen.blit(surface, ((width - surface.get_width()) // 2, y))
-                y += surface.get_height() + 28
+                y += surface.get_height() + (12 if number == 3 else 28)
             return
         art_size = min(height - 150, width // 2 - 90)
         self.screen.blit(self.artwork(self.song, art_size), (55, (height - art_size) // 2))
@@ -332,8 +346,8 @@ class App:
         self.screen.blit(self.text(self.song.artist, self.font, (158, 164, 194)), (x, height // 4 + 85))
         self.screen.blit(self.text(self.song.album, self.font_small, (117, 124, 158)), (x, height // 4 + 130))
         meta = f"{clock_text(self.song.duration)}     {self.song.bpm:.0f} BPM"
-        self.screen.blit(self.text(meta, self.font), (x, height // 2 + 30))
-        self.screen.blit(self.text(f"DIFFICULTY  {self.song.difficulty} / 9", self.font, (252, 93, 165)), (x, height // 2 + 85))
+        self.screen.blit(self.text(meta, self.font_small), (x, height // 2 + 30))
+        self.screen.blit(self.text(f"DIFFICULTY  {self.song.difficulty} / 9", self.font, (252, 93, 165)), (x, height // 2 + 68))
         self.screen.blit(self.text(f"{self.index + 1} / {len(self.songs)}", self.font_small), (x, height - 95))
         self.screen.blit(self.text("TURN TO BROWSE  •  PRESS TO PLAY", self.font_small, (100, 218, 255)), (x, height - 55))
 
@@ -345,19 +359,18 @@ class App:
         portrait = height > width
         lane_x = width * (0.50 if portrait else 0.70)
         hit_y = height * (0.72 if portrait else 0.78)
-        pygame.draw.line(self.screen, (98, 218, 255), (lane_x - 115, hit_y), (lane_x + 115, hit_y), 5)
-        for target in self.play_targets:
-            delta = target - pos
-            if -0.15 <= delta <= 2.4:
-                lane_height = height * (0.42 if portrait else 0.66)
-                y = hit_y - delta / 2.4 * lane_height
-                radius = 14 + round(5 * max(0, 1 - abs(delta) * 2))
-                pygame.draw.circle(self.screen, (252, 93, 165), (round(lane_x), round(y)), radius)
         art_size = min(300 if portrait else 310, height // 2)
         art_x = (width - art_size) // 2 if portrait else 45
         art_y = round(height * 0.16) if portrait else 55
         self.screen.blit(self.artwork(self.song, art_size), (art_x, art_y))
-        title_y = art_y + art_size + 25
+        bar_y = art_y + art_size + 6
+        bar_height = max(4, min(8, art_size // 50))
+        pygame.draw.rect(self.screen, (55, 16, 22), (art_x, bar_y, art_size, bar_height))
+        filled_width = progress_pixels(art_size, pos, self.song.duration)
+        if filled_width > 0:
+            pygame.draw.rect(self.screen, (230, 34, 51),
+                             (art_x, bar_y, filled_width, bar_height))
+        title_y = bar_y + bar_height + 19
         if portrait:
             self.draw_marquee(
                 self.song.title, self.font, (239, 241, 255),
@@ -376,32 +389,6 @@ class App:
             color = (97, 255, 173) if self.last_judgement.label != "MISS" else (255, 74, 93)
             label = self.text(self.last_judgement.label, self.font_big, color)
             self.screen.blit(label, (lane_x - label.get_width() / 2, hit_y + 45))
-        bar_height = max(16, height // 48 if portrait else height // 32)
-        if portrait and self.settings.aperture_enabled:
-            center_x, center_y, radius = self.aperture
-            bar_y = center_y + radius - max(90, round(height * 0.06))
-            bar_left, bar_right = aperture_chord(center_x, center_y, radius, bar_y, width)
-        else:
-            bar_y = height - bar_height
-            bar_left, bar_right = 0, width
-        bar_width = max(0, bar_right - bar_left)
-        pygame.draw.rect(self.screen, (26, 29, 48), (bar_left, bar_y, bar_width, bar_height))
-        filled_width = progress_pixels(bar_width, pos, self.song.duration)
-        if filled_width > 0:
-            stripe_width = max(18, width // 55)
-            cyan = (43, 235, 255)
-            purple = (218, 48, 255)
-            clip_before = self.screen.get_clip()
-            self.screen.set_clip(pygame.Rect(bar_left, bar_y, filled_width, bar_height))
-            for stripe_x in range(bar_left - bar_height, bar_left + filled_width + bar_height, stripe_width):
-                color = cyan if ((stripe_x // stripe_width) & 1) == 0 else purple
-                pygame.draw.polygon(self.screen, color, [
-                    (stripe_x, bar_y + bar_height),
-                    (stripe_x + stripe_width, bar_y + bar_height),
-                    (stripe_x + stripe_width + bar_height, bar_y),
-                    (stripe_x + bar_height, bar_y),
-                ])
-            self.screen.set_clip(clip_before)
         if self.state == "play" and ((not pygame.mixer.music.get_busy() and pos > 0.5)
                                      or pos >= self.song.duration):
             self.finish_song()
@@ -417,9 +404,12 @@ class App:
         if phase == "prompt":
             self.state = "prompt"
             if int(elapsed * 2) % 2 == 0:
-                message = self.text("ARE YOU STILL EXTANT???", self.font_big, (43, 235, 255))
-                self.screen.blit(message, ((width - message.get_width()) // 2,
-                                           (height - message.get_height()) // 2))
+                message = self.text("STILL EXTANT??", self.font_big, (43, 235, 255))
+                prompt = self.text("press any button to continue", self.font_small, (239, 241, 255))
+                message_y = (height - message.get_height() - prompt.get_height() - 14) // 2
+                self.screen.blit(message, ((width - message.get_width()) // 2, message_y))
+                self.screen.blit(prompt, ((width - prompt.get_width()) // 2,
+                                          message_y + message.get_height() + 14))
         elif phase == "expired":
             self.abandon_song()
             return
@@ -468,7 +458,11 @@ class App:
                         self.state,
                         flash_on=(int(time.monotonic() * 2) % 2 == 0),
                     )
-                self.apply_aperture_mask()
+                # Circular CRT aperture masking is currently disabled because it
+                # clips the upper corners of the square album artwork. Keep the
+                # mask implementation available in case the physical layout is
+                # revised later.
+                # self.apply_aperture_mask()
                 pygame.display.flip()
                 self.clock.tick(self.settings.fps)
         finally:
