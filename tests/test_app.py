@@ -6,7 +6,15 @@ from pi2rhythm.app import (
     marquee_position,
     pause_phase,
     progress_pixels,
+    RESULTS_SECONDS,
+    results_expired,
 )
+
+
+def test_results_are_shown_for_seven_and_a_half_seconds():
+    assert RESULTS_SECONDS == 7.5
+    assert not results_expired(7.499)
+    assert results_expired(7.5)
 
 
 def test_album_art_size_is_shared_layout_size():

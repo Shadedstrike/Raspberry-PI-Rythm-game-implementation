@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import math
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -17,6 +19,11 @@ from .scoring import Judgement, ScoreKeeper
 PAUSE_SECONDS = 30.0
 EXTANT_PROMPT_SECONDS = 10.0
 MARQUEE_SPEED = 70.0
+RESULTS_SECONDS = 7.5
+
+
+def results_expired(elapsed: float) -> bool:
+    return elapsed >= RESULTS_SECONDS
 
 
 def pause_phase(elapsed: float) -> str:
@@ -136,6 +143,8 @@ class App:
         self.last_judgement: Judgement | None = None
         self.judgement_at = 0.0
         self.final_stats: tuple[int, int, int, float] | None = None
+        self.results_started_at = 0.0
+        self.next_controller_beat = 0
         self.pause_started_at = 0.0
         self.pause_position = 0.0
         self.marquee_started_at = time.monotonic()
@@ -167,16 +176,55 @@ class App:
         return max(0.0, time.monotonic() - self.started_at - self.paused_total)
 
     def start_song(self) -> None:
+        source = self.song.resolved_path(self.settings.music_dir)
+        try:
+            pygame.mixer.music.load(str(source))
+        except pygame.error as original_error:
+            # SDL_mixer builds on older Pi OS often reject AAC/M4A (sometimes
+            # reporting the misleading "XMP: not a module file"). FFmpeg is
+            # already required by the scanner, so make a reusable Ogg playback
+            # copy instead of letting one track terminate the kiosk.
+            try:
+                stat = source.stat()
+                # One stable cache file per source path prevents old conversions
+                # accumulating forever when a track is replaced in place.
+                digest = hashlib.sha1(str(source.resolve()).encode()).hexdigest()[:16]
+                playback = self.settings.cache_dir / "playback" / f"{digest}.ogg"
+                playback.parent.mkdir(parents=True, exist_ok=True)
+                if (not playback.exists() or playback.stat().st_size == 0
+                        or playback.stat().st_mtime_ns < stat.st_mtime_ns):
+                    temporary = playback.with_suffix(".ogg.tmp")
+                    subprocess.run([
+                        "ffmpeg", "-y", "-v", "error", "-i", str(source),
+                        "-map", "a:0", "-vn", "-c:a", "libvorbis", "-q:a", "5",
+                        "-f", "ogg", str(temporary),
+                    ], check=True, timeout=600)
+                    temporary.replace(playback)
+                pygame.mixer.music.load(str(playback))
+                print(f"Playback compatibility copy: {source.name} -> {playback}")
+            except (OSError, subprocess.SubprocessError, pygame.error) as fallback_error:
+                print(f"Skipping unplayable song {source}: {original_error}; fallback failed: {fallback_error}",
+                      file=sys.stderr)
+                self.serial.set_pi_game(False)
+                self.state = "browse"
+                return
+        try:
+            pygame.mixer.music.set_volume(self.settings.volume)
+            pygame.mixer.music.play()
+        except pygame.error as exc:
+            print(f"Skipping song that could not start {source}: {exc}", file=sys.stderr)
+            self.serial.set_pi_game(False)
+            self.state = "browse"
+            return
         self.serial.set_pi_game(True)
-        pygame.mixer.music.load(str(self.song.resolved_path(self.settings.music_dir)))
-        pygame.mixer.music.set_volume(self.settings.volume)
-        pygame.mixer.music.play()
         self.started_at = time.monotonic()
         self.paused_total = 0.0
         self.play_targets = self.song.play_targets()
         self.scorer = ScoreKeeper(self.play_targets, self.song.difficulty)
         self.last_judgement = None
         self.final_stats = None
+        self.next_controller_beat = 0
+        self.serial.set_performance(100.0)
         self.pause_position = 0.0
         self.state = "play"
 
@@ -186,6 +234,7 @@ class App:
             self.final_stats = (self.scorer.points, self.scorer.hits, self.scorer.misses, self.scorer.accuracy)
         pygame.mixer.music.stop()
         self.serial.set_pi_game(False)
+        self.results_started_at = time.monotonic()
         self.state = "results"
 
     def pause_song(self) -> None:
@@ -217,6 +266,7 @@ class App:
             return
         self.last_judgement = self.scorer.tap(self.position())
         self.judgement_at = time.monotonic()
+        self.serial.set_performance(self.scorer.accuracy)
 
     def handle_action(self, kind: str, value: int = 0) -> None:
         # Any physical interaction proves the player is still present. Consume
@@ -372,6 +422,10 @@ class App:
 
     def draw_play(self) -> None:
         pos = self.position()
+        while (self.next_controller_beat < len(self.play_targets)
+               and self.play_targets[self.next_controller_beat] <= pos):
+            self.serial.beat()
+            self.next_controller_beat += 1
         pulse = 0.5 + 0.5 * math.sin(pos * math.tau * self.song.bpm / 60.0)
         self.draw_background(pulse)
         width, height = self.screen.get_size()
@@ -418,6 +472,7 @@ class App:
             self.screen.blit(self.text(self.song.title, self.font), (45, title_y))
         if self.scorer:
             self.scorer.advance(pos)
+            self.serial.set_performance(self.scorer.accuracy)
             score_y = title_y + self.font.get_height() + 35
             score = self.text(f"{self.scorer.points:07d}", self.font_score)
             self.screen.blit(score, ((width - score.get_width()) // 2 if portrait else 45, score_y))
@@ -459,6 +514,10 @@ class App:
                                        (height - message.get_height()) // 2))
 
     def draw_results(self) -> None:
+        if self.results_started_at and results_expired(time.monotonic() - self.results_started_at):
+            self.state = "browse"
+            self.marquee_started_at = time.monotonic()
+            return
         self.draw_background()
         width, height = self.screen.get_size()
         points, hits, misses, accuracy = self.final_stats or (0, 0, 0, 0.0)
@@ -475,7 +534,7 @@ class App:
         for number, line in enumerate(lines):
             surface = self.text(line, self.font)
             self.screen.blit(surface, ((width - surface.get_width()) // 2, lines_y + number * 58))
-        prompt = self.text("PRESS TO RETURN", self.font_small, (100, 218, 255))
+        prompt = self.text("RETURNING TO SONG LIST", self.font_small, (100, 218, 255))
         prompt_y = self.aperture[1] + self.aperture[2] - 150 if portrait and self.settings.aperture_enabled else height - 70
         self.screen.blit(prompt, ((width - prompt.get_width()) // 2, prompt_y))
 

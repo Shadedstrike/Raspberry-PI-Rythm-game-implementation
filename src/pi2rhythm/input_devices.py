@@ -121,6 +121,8 @@ class SerialController:
         self._pi_game = threading.Event()
         self._wake = threading.Event()
         self._normal_sent = threading.Event()
+        self._commands: queue.Queue[tuple[float, bytes]] = queue.Queue(maxsize=64)
+        self._last_performance: int | None = None
         self.thread = threading.Thread(target=self._run, name="controller-serial", daemon=True)
         self.thread.start()
 
@@ -170,6 +172,16 @@ class SerialController:
                             last_mode_send = now
                             if not pi_game:
                                 self._normal_sent.set()
+                        for _ in range(8):
+                            try:
+                                queued_at, command = self._commands.get_nowait()
+                            except queue.Empty:
+                                break
+                            # Never replay a burst of old beat flashes or obsolete
+                            # scores after USB reconnects following a long outage.
+                            if now - queued_at <= 0.5:
+                                link.write(command)
+                        link.flush()
                         line = link.readline().decode("utf-8", errors="replace")
                         event = parse_controller_line(line)
                         if event:
@@ -189,6 +201,27 @@ class SerialController:
         else:
             self._pi_game.clear()
         self._wake.set()
+
+    def _enqueue(self, command: bytes) -> None:
+        try:
+            self._commands.put_nowait((time.monotonic(), command))
+        except queue.Full:
+            pass
+        self._wake.set()
+
+    def beat(self) -> None:
+        """Ask the controller to flash its button LEDs on a chart beat."""
+        if self._pi_game.is_set():
+            self._enqueue(b"PPR1 BEAT\n")
+
+    def set_performance(self, accuracy: float) -> None:
+        """Update the controller's front-LED red-to-green performance meter."""
+        value = max(0, min(100, round(accuracy)))
+        if value == self._last_performance:
+            return
+        self._last_performance = value
+        if self._pi_game.is_set():
+            self._enqueue(f"PPR1 SCORE {value}\n".encode("ascii"))
 
     def close(self) -> None:
         self.set_pi_game(False)

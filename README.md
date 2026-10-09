@@ -10,6 +10,8 @@ A lightweight Raspberry Pi song carousel and rhythm game for a 200+ track SD-car
 - One-to-one hit judging with difficulty-sensitive timing windows, score, combo, misses, accuracy, and grade.
 - Existing controller compatibility over USB serial. The current PlatformIO firmware emits lines like `[BTN] GPIO 38 (idx 0) PRESSED`; all ten button presses count as taps.
 - Bidirectional `PPR1` mode control: song playback mutes the controller synth while buttons, LEDs, and ESP-NOW remain active; normal synth mode is restored on exit or within three seconds of a lost Pi heartbeat.
+- Controller beat flashes and red-to-green front-button performance feedback during Pi playback.
+- Results remain on screen for 7.5 seconds, then return automatically to the same carousel selection.
 - Keyboard development controls, so the UI can be tested without cabinet hardware.
 
 The scoring follows `pixel-perfect-revolt/src/rhythm_game.cpp`: difficulty 1–9 tightens the early window from 125 ms to 69 ms, late presses receive 68 ms additional slack, and bass onsets are the primary targets. This project uses precomputed targets rather than detecting them during playback.
@@ -164,7 +166,9 @@ the visible circle smaller. Set `aperture_enabled = false` to use the whole pane
 
 The Pi parser deliberately consumes only `PRESSED` records, never releases. Flash the matching controller firmware containing `pi_link.cpp`, keep USB serial at 115200 baud, and do not open a second serial monitor at the same time. Button input still uses the controller's existing debug records; a future protocol revision can replace those with compact versioned button packets.
 
-During playback the Pi sends `PPR1 MODE PI_GAME` once per second. The controller suppresses only its local synth/audio and continues scanning buttons and driving ESP-NOW effects. The Pi sends `PPR1 MODE NORMAL` at results, on exit, and during orderly shutdown. A controller-side three-second heartbeat timeout restores the synth if the Pi crashes or its USB cable is removed.
+During playback the Pi sends `PPR1 MODE PI_GAME` once per second, plus `PPR1 BEAT` and `PPR1 SCORE n` visual-feedback messages. The controller suppresses only its local synth/audio, shows `RYTHEM GAME MODE ACTIVE`, and continues scanning buttons and driving ESP-NOW effects. The Pi sends `PPR1 MODE NORMAL` at results, on exit, and during orderly shutdown. A controller-side three-second heartbeat timeout restores the synth if the Pi crashes or its USB cable is removed.
+
+If the Pi's SDL_mixer cannot directly open an AAC/M4A or another scanned format, playback automatically creates and reuses an Ogg compatibility copy under `.cache/playback`. A corrupt file is reported and skipped instead of terminating the kiosk.
 
 ## Tests
 
