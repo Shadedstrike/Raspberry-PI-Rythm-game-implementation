@@ -17,7 +17,6 @@ from .scoring import Judgement, ScoreKeeper
 PAUSE_SECONDS = 30.0
 EXTANT_PROMPT_SECONDS = 10.0
 MARQUEE_SPEED = 70.0
-MARQUEE_PAUSE = 1.0
 
 
 def pause_phase(elapsed: float) -> str:
@@ -58,23 +57,11 @@ def clock_text(seconds: float) -> str:
 
 
 def marquee_position(elapsed: float, text_width: int, viewport_width: int,
-                     speed: float = MARQUEE_SPEED, pause: float = MARQUEE_PAUSE) -> float:
-    """Return a looping leftward offset, pausing at both ends."""
-    distance = max(0, text_width - viewport_width)
-    if distance == 0:
+                     speed: float = MARQUEE_SPEED, gap: int = 80) -> float:
+    """Return a continuously wrapping left-to-right offset."""
+    if text_width <= viewport_width:
         return 0.0
-    travel_time = distance / speed
-    cycle = pause + travel_time + pause + travel_time
-    phase = elapsed % cycle
-    if phase < pause:
-        return 0.0
-    phase -= pause
-    if phase < travel_time:
-        return phase * speed
-    phase -= travel_time
-    if phase < pause:
-        return float(distance)
-    return distance - (phase - pause) * speed
+    return (elapsed * speed) % (text_width + gap)
 
 
 class App:
@@ -277,13 +264,16 @@ class App:
         if surface.get_width() <= rect.width:
             self.screen.blit(surface, (rect.centerx - surface.get_width() // 2, rect.y))
             return
+        gap = 80
         offset = marquee_position(
             time.monotonic() - self.marquee_started_at,
-            surface.get_width(), rect.width,
+            surface.get_width(), rect.width, gap=gap,
         )
         old_clip = self.screen.get_clip()
         self.screen.set_clip(rect)
-        self.screen.blit(surface, (rect.x - round(offset), rect.y))
+        period = surface.get_width() + gap
+        self.screen.blit(surface, (rect.x + round(offset), rect.y))
+        self.screen.blit(surface, (rect.x + round(offset) - period, rect.y))
         self.screen.set_clip(old_clip)
 
     def portrait_text_rect(self, y: int, line_height: int, margin: int = 45) -> pygame.Rect:

@@ -24,20 +24,21 @@ table includes physical pin numbers so they cannot be confused.
 |---|---:|---:|
 | RGB LED `B` through 220–330 Ω | GPIO12 | 32 |
 | RGB LED `R` through 220–330 Ω | GPIO13 | 33 |
-| Arcade button and RGB/switch common | GND | 34 |
+| Arcade button ground | GND | 34 |
 | RGB LED `G` through 220–330 Ω | GPIO19 | 35 |
 | SparkFun `SW` | GPIO16 | 36 |
 | Arcade button signal | GPIO26 | 37 |
 | SparkFun encoder `B` | GPIO20 | 38 |
 | SparkFun encoder `C` and `GND` | GND | 39 |
 | SparkFun encoder `A` | GPIO21 | 40 |
-| RGB LED/switch common cathode | GND | 34 |
+| RGB LED/switch `+` common | 3.3 V | 1 |
 
-`A` and `B` are the quadrature signals, `C` is their common contact, and `SW` is
-the shaft pushbutton. The SparkFun RGB encoder's LEDs and push switch have a
-separate common-cathode/GND connection; connect that to Pi **GND**, not 3.3 V.
-Connect each `R`, `G`, and LED `B` anode to its GPIO through its own **220–330 Ω
-series resistor**. Do not confuse the LED `B` with the separate encoder `B` beside
+`A` and `B` are the quadrature signals, and `C` is their common contact. On the
+five-pin side labeled `R G SW B +`, `+` is shared by the common-anode RGB LED and
+the active-high shaft switch: connect it to **3.3 V**. Connect `SW` to GPIO16, and
+connect each `R`, `G`, and LED `B` cathode to its GPIO through its own **220–330 Ω
+series resistor**. The encoder's `C` remains connected to GND; it is not the LED
+or switch common. Do not confuse the LED `B` with the separate encoder `B` beside
 `A C B`. Never connect an LED color pin directly to a Pi GPIO. The shaft switch
 and separate arcade button both act as start/pause controls.
 

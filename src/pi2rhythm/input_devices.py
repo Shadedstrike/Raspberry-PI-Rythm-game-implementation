@@ -45,14 +45,16 @@ class RotaryInput:
         except ImportError as exc:
             raise RuntimeError("gpiozero is not installed; disable [encoder] or install the gpio extra") from exc
         self.encoder = RotaryEncoder(clk, dt, max_steps=0, wrap=True)
-        self.button = Button(button, pull_up=True, bounce_time=bounce_ms / 1000.0)
+        # The R/G/SW/B/+ model drives SW high from its shared + pin when
+        # pressed, so GPIO16 needs a pull-down rather than a pull-up.
+        self.button = Button(button, pull_up=False, bounce_time=bounce_ms / 1000.0)
         self.start_button = (Button(start_button, pull_up=True, bounce_time=start_bounce_ms / 1000.0)
                              if start_button is not None else None)
-        # SparkFun's RGB encoder is common-cathode: its dedicated GND is shared
-        # by the LEDs and push switch, and each color GPIO sources current.
-        self.green_led = LED(green_led, active_high=True, initial_value=False)
-        self.red_led = LED(red_led, active_high=True, initial_value=False)
-        self.blue_led = LED(blue_led, active_high=True, initial_value=False)
+        # The R/G/SW/B/+ side is common-anode: + goes to 3.3 V and the color
+        # GPIOs sink current, so logical ON is electrically LOW.
+        self.green_led = LED(green_led, active_high=False, initial_value=False)
+        self.red_led = LED(red_led, active_high=False, initial_value=False)
+        self.blue_led = LED(blue_led, active_high=False, initial_value=False)
         self._light_state: tuple[str, bool] | None = None
         # This breakout's installed A/B orientation reports a physical right
         # turn as gpiozero counter-clockwise. Map physical right to next (+1).

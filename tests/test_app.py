@@ -38,11 +38,11 @@ def test_aperture_chord_is_clipped_to_screen_width():
     assert aperture_chord(center_x, center_y, radius, 0, 1080) == (center_x, center_x)
 
 
-def test_marquee_pauses_and_pans_to_both_ends():
-    assert marquee_position(0.5, 500, 300, speed=100, pause=1) == 0
-    assert marquee_position(2, 500, 300, speed=100, pause=1) == 100
-    assert marquee_position(3.5, 500, 300, speed=100, pause=1) == 200
-    assert marquee_position(5, 500, 300, speed=100, pause=1) == 100
+def test_marquee_moves_one_way_and_wraps():
+    assert marquee_position(0, 500, 300, speed=100, gap=100) == 0
+    assert marquee_position(2, 500, 300, speed=100, gap=100) == 200
+    assert marquee_position(5, 500, 300, speed=100, gap=100) == 500
+    assert marquee_position(6, 500, 300, speed=100, gap=100) == 0
 
 
 def test_marquee_does_not_move_text_that_fits():

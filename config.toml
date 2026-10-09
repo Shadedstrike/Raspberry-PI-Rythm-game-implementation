@@ -30,8 +30,8 @@ button = 16
 green_led = 19
 red_led = 13
 blue_led = 12
-# Common-cathode RGB encoder: connect its dedicated GND to Pi GND. REQUIRED:
-# put a 220–330 ohm series resistor between each GPIO and its R/G/B anode.
+# R/G/SW/B/+ model: connect + to 3.3V. It supplies both the common-anode LED
+# and active-high SW. Put 220–330 ohm between each GPIO and R/G/B cathode.
 bounce_ms = 12
 
 [start_button]
