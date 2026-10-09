@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import pygame
@@ -28,8 +29,13 @@ def results_expired(elapsed: float) -> bool:
 
 
 def display_flags(fullscreen: bool) -> int:
-    """Use a logical canvas that SDL scales to the physical kiosk display."""
-    return (pygame.FULLSCREEN | pygame.SCALED) if fullscreen else 0
+    """Request true native fullscreen without aspect-ratio letterboxing."""
+    return pygame.FULLSCREEN if fullscreen else 0
+
+
+def display_size(width: int, height: int, fullscreen: bool) -> tuple[int, int]:
+    """A zero-sized fullscreen request tells SDL to occupy the desktop mode."""
+    return (0, 0) if fullscreen else (width, height)
 
 
 def pause_phase(elapsed: float) -> str:
@@ -105,12 +111,17 @@ class App:
             os.environ.setdefault("SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS", "0")
         pygame.init()
         pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
-        # Keep kiosk fullscreen if another desktop notification/window briefly
-        # takes focus. SCALED preserves the configured portrait layout while SDL
-        # fills whatever native mode the OS exposes after display updates.
+        # In kiosk mode, (0, 0) selects the exact native desktop mode. SDL's
+        # SCALED flag deliberately letterboxes mismatched aspect ratios, which
+        # exposed a strip of desktop on the cabinet's 1080x1920 panel.
         self.screen = pygame.display.set_mode(
-            (settings.width, settings.height), display_flags(settings.fullscreen)
+            display_size(settings.width, settings.height, settings.fullscreen),
+            display_flags(settings.fullscreen),
         )
+        if settings.fullscreen:
+            native_width, native_height = self.screen.get_size()
+            settings = replace(settings, width=native_width, height=native_height)
+            self.settings = settings
         pygame.mouse.set_visible(not settings.fullscreen)
         pygame.display.set_caption("Pi 2 Rhythm")
         # Base typography on the shorter axis so portrait screens do not get
@@ -591,7 +602,6 @@ def main() -> int:
     try:
         settings = load_settings(args.config)
         if args.kiosk and not settings.fullscreen:
-            from dataclasses import replace
             settings = replace(settings, fullscreen=True)
         App(settings).run()
     except (RuntimeError, OSError, pygame.error) as exc:

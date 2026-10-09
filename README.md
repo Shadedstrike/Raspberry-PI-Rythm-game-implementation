@@ -101,7 +101,7 @@ Analysis is intentionally conservative on RAM: 11.025 kHz mono audio and chunked
 .venv/bin/pi2-rhythm --config config.toml
 ```
 
-Use `./start-rhythm-game.sh` or add `--kiosk` to force scaled fullscreen even
+Use `./start-rhythm-game.sh` or add `--kiosk` to force native fullscreen even
 when an older preserved cabinet configuration says `fullscreen = false`.
 
 Controls:
