@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import math
+import os
 import subprocess
 import sys
 import time
@@ -24,6 +25,11 @@ RESULTS_SECONDS = 7.5
 
 def results_expired(elapsed: float) -> bool:
     return elapsed >= RESULTS_SECONDS
+
+
+def display_flags(fullscreen: bool) -> int:
+    """Use a logical canvas that SDL scales to the physical kiosk display."""
+    return (pygame.FULLSCREEN | pygame.SCALED) if fullscreen else 0
 
 
 def pause_phase(elapsed: float) -> str:
@@ -95,10 +101,16 @@ class App:
         self.songs = load_library(settings.library_file)
         if not self.songs:
             raise RuntimeError(f"No songs in {settings.library_file}; run pi2-rhythm-scan first")
+        if settings.fullscreen:
+            os.environ.setdefault("SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS", "0")
         pygame.init()
         pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
-        flags = pygame.FULLSCREEN if settings.fullscreen else 0
-        self.screen = pygame.display.set_mode((settings.width, settings.height), flags)
+        # Keep kiosk fullscreen if another desktop notification/window briefly
+        # takes focus. SCALED preserves the configured portrait layout while SDL
+        # fills whatever native mode the OS exposes after display updates.
+        self.screen = pygame.display.set_mode(
+            (settings.width, settings.height), display_flags(settings.fullscreen)
+        )
         pygame.mouse.set_visible(not settings.fullscreen)
         pygame.display.set_caption("Pi 2 Rhythm")
         # Base typography on the shorter axis so portrait screens do not get
@@ -573,9 +585,15 @@ class App:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Pi 2 rhythm visualizer")
     parser.add_argument("--config", type=Path, default=Path("config.toml"))
+    parser.add_argument("--kiosk", action="store_true",
+                        help="force scaled fullscreen regardless of the saved config")
     args = parser.parse_args()
     try:
-        App(load_settings(args.config)).run()
+        settings = load_settings(args.config)
+        if args.kiosk and not settings.fullscreen:
+            from dataclasses import replace
+            settings = replace(settings, fullscreen=True)
+        App(settings).run()
     except (RuntimeError, OSError, pygame.error) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

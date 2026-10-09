@@ -30,4 +30,4 @@ if [ ! -x "$COMMAND" ]; then
 fi
 
 cd "$REPO_DIR"
-exec "$COMMAND" --config "$REPO_DIR/config.toml" "$@"
+exec "$COMMAND" --config "$REPO_DIR/config.toml" --kiosk "$@"

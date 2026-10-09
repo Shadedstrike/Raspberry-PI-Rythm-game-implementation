@@ -7,6 +7,7 @@ from pi2rhythm.app import (
     pause_phase,
     progress_pixels,
     RESULTS_SECONDS,
+    display_flags,
     results_expired,
 )
 
@@ -15,6 +16,14 @@ def test_results_are_shown_for_seven_and_a_half_seconds():
     assert RESULTS_SECONDS == 7.5
     assert not results_expired(7.499)
     assert results_expired(7.5)
+
+
+def test_kiosk_uses_scaled_fullscreen():
+    import pygame
+
+    assert display_flags(False) == 0
+    assert display_flags(True) & pygame.FULLSCREEN
+    assert display_flags(True) & pygame.SCALED
 
 
 def test_album_art_size_is_shared_layout_size():
