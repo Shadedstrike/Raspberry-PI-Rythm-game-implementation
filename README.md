@@ -16,31 +16,25 @@ The scoring follows `pixel-perfect-revolt/src/rhythm_game.cpp`: difficulty 1–9
 
 ## Hardware
 
-The default wiring keeps every control connection in physical pins **33–40**, at
-the bottom end of the 40-pin Pi header. `config.toml` uses BCM GPIO numbers; the
-table includes physical pin numbers so they cannot be confused.
+The default configuration uses a generic five-pin `CLK DT SW + GND` encoder.
+`config.toml` uses BCM GPIO numbers; the table includes physical pin numbers so
+they cannot be confused.
 
 | Control connection | BCM GPIO | Physical pin |
 |---|---:|---:|
-| RGB LED `B` through 220–330 Ω | GPIO12 | 32 |
-| RGB LED `R` through 220–330 Ω | GPIO13 | 33 |
 | Arcade button ground | GND | 34 |
-| RGB LED `G` through 220–330 Ω | GPIO19 | 35 |
-| SparkFun `SW` | GPIO16 | 36 |
+| Encoder `SW` | GPIO16 | 36 |
 | Arcade button signal | GPIO26 | 37 |
-| SparkFun encoder `B` | GPIO20 | 38 |
-| SparkFun encoder `C` and `GND` | GND | 39 |
-| SparkFun encoder `A` | GPIO21 | 40 |
-| RGB LED/switch `+` common | 3.3 V | 1 |
+| Encoder `DT` | GPIO20 | 38 |
+| Encoder `GND` | GND | 39 |
+| Encoder `CLK` | GPIO21 | 40 |
+| Encoder `+` | 3.3 V | 1 |
 
-`A` and `B` are the quadrature signals, and `C` is their common contact. On the
-five-pin side labeled `R G SW B +`, `+` is shared by the common-anode RGB LED and
-the active-high shaft switch: connect it to **3.3 V**. Connect `SW` to GPIO16, and
-connect each `R`, `G`, and LED `B` cathode to its GPIO through its own **220–330 Ω
-series resistor**. The encoder's `C` remains connected to GND; it is not the LED
-or switch common. Do not confuse the LED `B` with the separate encoder `B` beside
-`A C B`. Never connect an LED color pin directly to a Pi GPIO. The shaft switch
-and separate arcade button both act as start/pause controls.
+Power the module from **3.3 V**, not 5 V. Turning clockwise advances to the next
+song; turning counter-clockwise goes back. The module pulls `SW` to ground when
+the shaft is pressed, and the software enables GPIO16's internal pull-up. The
+shaft switch and separate arcade button both act as start/pause controls. This
+encoder has no RGB output, so `[encoder] leds_enabled` is false by default.
 
 Connect the ESP32-S3 controller to the Pi by USB. Add the runtime user to `dialout` if the serial port is not readable:
 

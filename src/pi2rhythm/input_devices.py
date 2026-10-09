@@ -38,39 +38,40 @@ class EventQueue:
 
 class RotaryInput:
     def __init__(self, events: EventQueue, clk: int, dt: int, button: int, bounce_ms: int,
-                 green_led: int, red_led: int, blue_led: int, start_button: int | None = None,
+                 green_led: int | None = None, red_led: int | None = None,
+                 blue_led: int | None = None, start_button: int | None = None,
                  start_bounce_ms: int = 20):
         try:
             from gpiozero import Button, LED, RotaryEncoder
         except ImportError as exc:
             raise RuntimeError("gpiozero is not installed; disable [encoder] or install the gpio extra") from exc
         self.encoder = RotaryEncoder(clk, dt, max_steps=0, wrap=True)
-        # The R/G/SW/B/+ model drives SW high from its shared + pin when
-        # pressed, so GPIO16 needs a pull-down rather than a pull-up.
-        self.button = Button(button, pull_up=False, bounce_time=bounce_ms / 1000.0)
+        # Generic CLK/DT/SW/+/GND modules pull SW to ground when pressed.
+        self.button = Button(button, pull_up=True, bounce_time=bounce_ms / 1000.0)
         self.start_button = (Button(start_button, pull_up=True, bounce_time=start_bounce_ms / 1000.0)
                              if start_button is not None else None)
-        # The R/G/SW/B/+ side is common-anode: + goes to 3.3 V and the color
-        # GPIOs sink current, so logical ON is electrically LOW.
-        self.green_led = LED(green_led, active_high=False, initial_value=False)
-        self.red_led = LED(red_led, active_high=False, initial_value=False)
-        self.blue_led = LED(blue_led, active_high=False, initial_value=False)
+        led_pins = (green_led, red_led, blue_led)
+        if any(pin is not None for pin in led_pins) and not all(pin is not None for pin in led_pins):
+            raise RuntimeError("configure all three RGB LED pins or disable encoder LEDs")
+        self.green_led = LED(green_led, active_high=False, initial_value=False) if green_led is not None else None
+        self.red_led = LED(red_led, active_high=False, initial_value=False) if red_led is not None else None
+        self.blue_led = LED(blue_led, active_high=False, initial_value=False) if blue_led is not None else None
         self._light_state: tuple[str, bool] | None = None
-        # This breakout's installed A/B orientation reports a physical right
-        # turn as gpiozero counter-clockwise. Map physical right to next (+1).
-        self.encoder.when_rotated_clockwise = lambda: events.put("move", -1)
-        self.encoder.when_rotated_counter_clockwise = lambda: events.put("move", 1)
+        self.encoder.when_rotated_clockwise = lambda: events.put("move", 1)
+        self.encoder.when_rotated_counter_clockwise = lambda: events.put("move", -1)
         self.button.when_pressed = lambda: events.put("select")
         if self.start_button:
             self.start_button.when_pressed = lambda: events.put("select")
-        # Briefly prove each RGB channel and its GPIO wiring at launch.
-        for led in (self.red_led, self.green_led, self.blue_led):
-            led.on()
-            time.sleep(0.12)
-            led.off()
+        if self.green_led and self.red_led and self.blue_led:
+            for led in (self.red_led, self.green_led, self.blue_led):
+                led.on()
+                time.sleep(0.12)
+                led.off()
         self.set_lights("browse")
 
     def set_lights(self, state: str, flash_on: bool = True) -> None:
+        if not self.green_led or not self.red_led or not self.blue_led:
+            return
         requested = (state, flash_on if state == "prompt" else True)
         if requested == self._light_state:
             return
@@ -97,9 +98,9 @@ class RotaryInput:
         self.button.close()
         if self.start_button:
             self.start_button.close()
-        self.green_led.close()
-        self.red_led.close()
-        self.blue_led.close()
+        for led in (self.green_led, self.red_led, self.blue_led):
+            if led:
+                led.close()
 
 
 BUTTON_LINE = re.compile(r"\[BTN\]\s+GPIO\s+(\d+)\s+\(idx\s+(\d+)\)\s+PRESSED")

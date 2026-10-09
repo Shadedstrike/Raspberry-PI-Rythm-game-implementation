@@ -97,8 +97,9 @@ class App:
             try:
                 self.rotary = RotaryInput(self.events, settings.encoder_clk, settings.encoder_dt,
                                           settings.encoder_button, settings.encoder_bounce_ms,
-                                          settings.encoder_green_led, settings.encoder_red_led,
-                                          settings.encoder_blue_led,
+                                          settings.encoder_green_led if settings.encoder_leds_enabled else None,
+                                          settings.encoder_red_led if settings.encoder_leds_enabled else None,
+                                          settings.encoder_blue_led if settings.encoder_leds_enabled else None,
                                           settings.start_button_pin if settings.start_button_enabled else None,
                                           settings.start_button_bounce_ms)
             except RuntimeError as exc:

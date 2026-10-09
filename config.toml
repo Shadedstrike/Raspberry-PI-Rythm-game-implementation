@@ -27,11 +27,11 @@ enabled = true
 clk = 21
 dt = 20
 button = 16
+leds_enabled = false
 green_led = 19
 red_led = 13
 blue_led = 12
-# R/G/SW/B/+ model: connect + to 3.3V. It supplies both the common-anode LED
-# and active-high SW. Put 220–330 ohm between each GPIO and R/G/B cathode.
+# The generic encoder has no RGB LED; the pin values are ignored while false.
 bounce_ms = 12
 
 [start_button]

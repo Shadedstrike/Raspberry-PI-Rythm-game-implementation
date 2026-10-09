@@ -14,26 +14,21 @@ def test_bottom_header_gpio_allocation_and_buttons():
         dt=20,
         button=16,
         bounce_ms=0,
-        green_led=19,
-        red_led=13,
-        blue_led=12,
         start_button=26,
         start_bounce_ms=0,
     )
     try:
-        assert controls.green_led.is_lit
-        assert not controls.red_led.is_lit
-        assert not controls.blue_led.is_lit
+        assert controls.green_led is None
+        assert controls.red_led is None
+        assert controls.blue_led is None
 
-        controls.button.pin.drive_low()
         controls.button.pin.drive_high()
+        controls.button.pin.drive_low()
         controls.start_button.pin.drive_low()
         controls.start_button.pin.drive_high()
         assert [event.kind for event in events.drain()] == ["select", "select"]
 
         controls.set_lights("paused")
-        assert not controls.green_led.is_lit
-        assert controls.red_led.is_lit
     finally:
         controls.close()
         Device.pin_factory = previous_factory

@@ -28,6 +28,7 @@ class Settings:
     encoder_clk: int
     encoder_dt: int
     encoder_button: int
+    encoder_leds_enabled: bool
     encoder_green_led: int
     encoder_red_led: int
     encoder_blue_led: int
@@ -75,6 +76,7 @@ def load_settings(path: Path) -> Settings:
         encoder_clk=int(encoder.get("clk", 21)),
         encoder_dt=int(encoder.get("dt", 20)),
         encoder_button=int(encoder.get("button", 16)),
+        encoder_leds_enabled=bool(encoder.get("leds_enabled", False)),
         encoder_green_led=int(encoder.get("green_led", 19)),
         encoder_red_led=int(encoder.get("red_led", 13)),
         encoder_blue_led=int(encoder.get("blue_led", 12)),
