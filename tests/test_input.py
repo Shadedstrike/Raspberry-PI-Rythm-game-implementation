@@ -11,8 +11,15 @@ def test_controller_press_line():
 def test_priority_controller_button_protocol():
     event = parse_controller_line("PPR1 BTN 9\n")
     assert event is not None
-    assert event.kind == "tap"
+    assert event.kind == "button_down"
     assert event.value == 9
+
+
+def test_priority_controller_button_release_protocol():
+    event = parse_controller_line("PPR1 BTN_UP 4\n")
+    assert event is not None
+    assert event.kind == "button_up"
+    assert event.value == 4
 
 
 def test_priority_controller_button_protocol_rejects_invalid_indexes():

@@ -104,14 +104,16 @@ class RotaryInput:
 
 
 BUTTON_LINE = re.compile(r"\[BTN\]\s+GPIO\s+(\d+)\s+\(idx\s+(\d+)\)\s+PRESSED")
-BUTTON_PROTOCOL_LINE = re.compile(r"^PPR1 BTN (\d+)$")
+BUTTON_PROTOCOL_LINE = re.compile(r"^PPR1 BTN(_UP)? (\d+)$")
 
 
 def parse_controller_line(line: str) -> InputEvent | None:
     protocol_match = BUTTON_PROTOCOL_LINE.match(line.strip())
     if protocol_match:
-        index = int(protocol_match.group(1))
-        return InputEvent("tap", index) if 0 <= index < 10 else None
+        index = int(protocol_match.group(2))
+        if not 0 <= index < 10:
+            return None
+        return InputEvent("button_up" if protocol_match.group(1) else "button_down", index)
     match = BUTTON_LINE.search(line)
     return InputEvent("tap", int(match.group(2))) if match else None
 
@@ -227,6 +229,12 @@ class SerialController:
         self._last_performance = value
         if self._pi_game.is_set():
             self._enqueue(f"PPR1 SCORE {value}\n".encode("ascii"))
+
+    def judgement(self, label: str) -> None:
+        """Show the latest timing judgement on the controller display."""
+        display_label = label if label in {"PERFECT", "MISS"} else "HIT"
+        if self._pi_game.is_set():
+            self._enqueue(f"PPR1 JUDGE {display_label}\n".encode("ascii"))
 
     def close(self) -> None:
         self.set_pi_game(False)

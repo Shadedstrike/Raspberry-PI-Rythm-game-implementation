@@ -28,3 +28,12 @@ def test_early_button_mash_is_a_miss_without_consuming_target():
     assert score.tap(1.0).label == "MISS"
     assert score.next_target == 0
 
+
+def test_hold_auto_hits_each_target_as_it_approaches():
+    score = ScoreKeeper([1.0, 2.0], difficulty=5)
+
+    assert score.hold(0.5) is None
+    assert score.hold(0.95).label == "PERFECT"
+    assert score.hold(1.95).label == "PERFECT"
+    assert score.points > 0
+    assert score.hits == 2

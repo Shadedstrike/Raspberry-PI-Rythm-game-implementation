@@ -190,6 +190,7 @@ class App:
         self.final_stats: tuple[int, int, int, float] | None = None
         self.results_started_at = 0.0
         self.next_controller_beat = 0
+        self.held_controller_buttons: set[int] = set()
         self.pause_started_at = 0.0
         self.pause_position = 0.0
         self.marquee_elapsed = 0.0
@@ -246,6 +247,7 @@ class App:
         self.last_judgement = None
         self.final_stats = None
         self.next_controller_beat = 0
+        self.held_controller_buttons.clear()
         self.serial.set_performance(100.0)
         self.pause_position = 0.0
         self.state = "play"
@@ -286,9 +288,14 @@ class App:
     def tap(self) -> None:
         if self.state != "play" or not self.scorer:
             return
-        self.last_judgement = self.scorer.tap(self.position())
+        self.record_judgement(self.scorer.tap(self.position()))
+
+    def record_judgement(self, judgement: Judgement) -> None:
+        self.last_judgement = judgement
         self.judgement_at = time.monotonic()
-        self.serial.set_performance(self.scorer.accuracy)
+        self.serial.judgement(judgement.label)
+        if self.scorer:
+            self.serial.set_performance(self.scorer.accuracy)
 
     def handle_action(self, kind: str, value: int = 0) -> None:
         # Any physical interaction proves the player is still present. Consume
@@ -296,7 +303,12 @@ class App:
         if self.state in ("paused", "prompt") and kind in ("move", "select", "tap"):
             self.resume_song()
             return
-        if kind == "move" and self.state == "browse":
+        if kind == "button_up":
+            self.held_controller_buttons.discard(value)
+        elif kind == "button_down":
+            self.held_controller_buttons.add(value)
+            self.tap()
+        elif kind == "move" and self.state == "browse":
             self.index = (self.index + value) % len(self.songs)
             self.marquee_elapsed = 0.0
         elif kind == "select":
@@ -498,18 +510,24 @@ class App:
             )
         else:
             self.screen.blit(self.text(self.song.title, self.font), (45, title_y))
-        artist_y = title_y + self.font.get_height() + 8
-        artist = self.text(self.song.artist, self.font_small, (158, 164, 194))
+        artist_y = title_y + self.font.get_height() + 14
+        artist = self.text(self.song.artist, self.font, (158, 164, 194))
         artist_rect = (
             self.portrait_text_rect(artist_y, artist.get_height())
             if portrait
             else pygame.Rect(45, artist_y, max(1, width - 90), artist.get_height())
         )
         self.draw_marquee(
-            self.song.artist, self.font_small, (158, 164, 194), artist_rect,
+            self.song.artist, self.font, (158, 164, 194), artist_rect,
         )
         if self.scorer:
-            self.scorer.advance(pos)
+            if self.held_controller_buttons:
+                held_judgement = self.scorer.hold(pos)
+                if held_judgement:
+                    self.record_judgement(held_judgement)
+            misses = self.scorer.advance(pos)
+            if misses:
+                self.record_judgement(misses[-1])
             self.serial.set_performance(self.scorer.accuracy)
             score_y = artist_y + artist.get_height() + 22
             score = self.text(f"{self.scorer.points:07d}", self.font_score)

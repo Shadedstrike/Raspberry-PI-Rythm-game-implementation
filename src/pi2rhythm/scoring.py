@@ -62,6 +62,18 @@ class ScoreKeeper:
         self.points += gained
         return Judgement(label, gained, delta)
 
+    def hold(self, position_s: float) -> Judgement | None:
+        """Auto-hit an approaching target while a controller play key is held."""
+        if self.next_target >= len(self.targets_ms):
+            return None
+        now = round(position_s * 1000)
+        target = self.targets_ms[self.next_target]
+        if now < target - self.early_ms or now > target + self.late_ms:
+            return None
+        # Match the accessible/easter-egg hold path from the controller's local
+        # rhythm mode: consume the beat at its exact time for a perfect.
+        return self.tap(target / 1000.0)
+
     def _bad_tap(self) -> Judgement:
         self.misses += 1
         self.combo = 0
@@ -71,4 +83,3 @@ class ScoreKeeper:
     def accuracy(self) -> float:
         total = self.hits + self.misses
         return (100.0 * self.hits / total) if total else 0.0
-
