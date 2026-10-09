@@ -316,8 +316,7 @@ class App:
             # 20% larger again than the previously enlarged cover (62% larger
             # than the original), shifted upward to preserve the text area.
             art_size = min(round(width * 0.52 * 1.35 * 1.20), round(width * 0.88))
-            # Keep the square's upper corners inside the round aperture while
-            # lifting the entire browser stack (artwork and every text row).
+            # Lift the artwork and browser stack for the portrait display.
             art_y = round(height * 0.07)
             self.screen.blit(self.artwork(self.song, art_size), ((width - art_size) // 2, art_y))
             rows = [
@@ -329,7 +328,9 @@ class App:
                 (f"{self.index + 1} / {len(self.songs)}", self.font_small, (239, 241, 255)),
                 ("TURN TO BROWSE  •  PRESS TO PLAY", self.font_small, (100, 218, 255)),
             ]
-            y = art_y + art_size + 55
+            # Keep the title close to the cover and compact the remaining rows
+            # so the difficulty rating stays comfortably in view.
+            y = art_y + art_size + 20
             for number, (value, font, color) in enumerate(rows):
                 surface = self.text(value, font, color)
                 if number == 0:
@@ -337,7 +338,7 @@ class App:
                                        self.portrait_text_rect(y, surface.get_height()))
                 else:
                     self.screen.blit(surface, ((width - surface.get_width()) // 2, y))
-                y += surface.get_height() + (12 if number == 3 else 28)
+                y += surface.get_height() + (8 if number == 3 else 18)
             return
         art_size = min(height - 150, width // 2 - 90)
         self.screen.blit(self.artwork(self.song, art_size), (55, (height - art_size) // 2))
