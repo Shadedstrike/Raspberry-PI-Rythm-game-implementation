@@ -149,7 +149,7 @@ CRT opening and about one inch extending below its lower lip:
 
 ```toml
 [display]
-width = 1080
+width = 1040
 height = 1920
 fullscreen = true
 aperture_enabled = true
@@ -158,7 +158,7 @@ bottom_overhang_inches = 1.0
 ```
 
 Set the HDMI display rotation to **right** in Raspberry Pi OS before launching the
-game, so pygame reports a 1080×1920 desktop. The game derives a top-aligned circular
+game, so pygame reports a 1040×1920 desktop. The game derives a top-aligned circular
 mask from the panel dimensions, keeps the portrait UI inside the opening, and puts
 the progress bar across a safe chord near the bottom. Adjust
 `bottom_overhang_inches` after measuring the installed panel; increasing it makes

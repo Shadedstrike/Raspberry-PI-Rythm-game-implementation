@@ -4,7 +4,7 @@ library_file = "library.json"
 cache_dir = ".cache"
 
 [display]
-width = 1080
+width = 1040
 height = 1920
 fullscreen = true
 fps = 30

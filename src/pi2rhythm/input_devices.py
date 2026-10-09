@@ -54,11 +54,18 @@ class RotaryInput:
         self.red_led = LED(red_led, active_high=False, initial_value=False)
         self.blue_led = LED(blue_led, active_high=False, initial_value=False)
         self._light_state: tuple[str, bool] | None = None
-        self.encoder.when_rotated_clockwise = lambda: events.put("move", 1)
-        self.encoder.when_rotated_counter_clockwise = lambda: events.put("move", -1)
+        # This breakout's installed A/B orientation reports a physical right
+        # turn as gpiozero counter-clockwise. Map physical right to next (+1).
+        self.encoder.when_rotated_clockwise = lambda: events.put("move", -1)
+        self.encoder.when_rotated_counter_clockwise = lambda: events.put("move", 1)
         self.button.when_pressed = lambda: events.put("select")
         if self.start_button:
             self.start_button.when_pressed = lambda: events.put("select")
+        # Briefly prove each common-anode channel and its GPIO wiring at launch.
+        for led in (self.red_led, self.green_led, self.blue_led):
+            led.on()
+            time.sleep(0.12)
+            led.off()
         self.set_lights("browse")
 
     def set_lights(self, state: str, flash_on: bool = True) -> None:

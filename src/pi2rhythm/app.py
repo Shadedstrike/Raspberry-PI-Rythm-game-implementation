@@ -16,6 +16,8 @@ from .scoring import Judgement, ScoreKeeper
 
 PAUSE_SECONDS = 30.0
 EXTANT_PROMPT_SECONDS = 10.0
+MARQUEE_SPEED = 70.0
+MARQUEE_PAUSE = 1.0
 
 
 def pause_phase(elapsed: float) -> str:
@@ -53,6 +55,26 @@ def aperture_chord(center_x: int, center_y: int, radius: int, y: int,
 def clock_text(seconds: float) -> str:
     seconds = max(0, round(seconds))
     return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def marquee_position(elapsed: float, text_width: int, viewport_width: int,
+                     speed: float = MARQUEE_SPEED, pause: float = MARQUEE_PAUSE) -> float:
+    """Return a looping leftward offset, pausing at both ends."""
+    distance = max(0, text_width - viewport_width)
+    if distance == 0:
+        return 0.0
+    travel_time = distance / speed
+    cycle = pause + travel_time + pause + travel_time
+    phase = elapsed % cycle
+    if phase < pause:
+        return 0.0
+    phase -= pause
+    if phase < travel_time:
+        return phase * speed
+    phase -= travel_time
+    if phase < pause:
+        return float(distance)
+    return distance - (phase - pause) * speed
 
 
 class App:
@@ -107,6 +129,7 @@ class App:
         self.final_stats: tuple[int, int, int, float] | None = None
         self.pause_started_at = 0.0
         self.pause_position = 0.0
+        self.marquee_started_at = time.monotonic()
 
     @property
     def song(self) -> Song:
@@ -194,6 +217,7 @@ class App:
             return
         if kind == "move" and self.state == "browse":
             self.index = (self.index + value) % len(self.songs)
+            self.marquee_started_at = time.monotonic()
         elif kind == "select":
             if self.state == "play":
                 self.pause_song()
@@ -246,6 +270,33 @@ class App:
     def text(self, value: str, font: pygame.font.Font, color=(239, 241, 255)) -> pygame.Surface:
         return font.render(value, True, color)
 
+    def draw_marquee(self, value: str, font: pygame.font.Font, color: tuple[int, int, int],
+                     rect: pygame.Rect) -> None:
+        """Center short text; smoothly pan long text inside the supplied bounds."""
+        surface = self.text(value, font, color)
+        if surface.get_width() <= rect.width:
+            self.screen.blit(surface, (rect.centerx - surface.get_width() // 2, rect.y))
+            return
+        offset = marquee_position(
+            time.monotonic() - self.marquee_started_at,
+            surface.get_width(), rect.width,
+        )
+        old_clip = self.screen.get_clip()
+        self.screen.set_clip(rect)
+        self.screen.blit(surface, (rect.x - round(offset), rect.y))
+        self.screen.set_clip(old_clip)
+
+    def portrait_text_rect(self, y: int, line_height: int, margin: int = 45) -> pygame.Rect:
+        width, _ = self.screen.get_size()
+        if self.settings.aperture_enabled:
+            center_x, center_y, radius = self.aperture
+            left, right = aperture_chord(center_x, center_y, radius, y + line_height // 2, width)
+        else:
+            left, right = 0, width
+        left += margin
+        right -= margin
+        return pygame.Rect(left, y, max(1, right - left), line_height)
+
     def draw_background(self, pulse: float = 0.0) -> None:
         self.screen.fill((9, 11, 20))
         width, height = self.screen.get_size()
@@ -257,8 +308,9 @@ class App:
         self.draw_background()
         width, height = self.screen.get_size()
         if height > width:
-            art_size = min(round(width * 0.52), 500)
-            art_y = round(height * 0.20)
+            # 35% larger than the original 52%-of-width cover.
+            art_size = min(round(width * 0.52 * 1.35), round(width * 0.74))
+            art_y = round(height * 0.15)
             self.screen.blit(self.artwork(self.song, art_size), ((width - art_size) // 2, art_y))
             rows = [
                 (self.song.title, self.font_big, (239, 241, 255)),
@@ -270,9 +322,13 @@ class App:
                 ("TURN TO BROWSE  •  PRESS TO PLAY", self.font_small, (100, 218, 255)),
             ]
             y = art_y + art_size + 55
-            for value, font, color in rows:
+            for number, (value, font, color) in enumerate(rows):
                 surface = self.text(value, font, color)
-                self.screen.blit(surface, ((width - surface.get_width()) // 2, y))
+                if number == 0:
+                    self.draw_marquee(value, font, color,
+                                       self.portrait_text_rect(y, surface.get_height()))
+                else:
+                    self.screen.blit(surface, ((width - surface.get_width()) // 2, y))
                 y += surface.get_height() + 28
             return
         art_size = min(height - 150, width // 2 - 90)
@@ -307,9 +363,14 @@ class App:
         art_x = (width - art_size) // 2 if portrait else 45
         art_y = round(height * 0.16) if portrait else 55
         self.screen.blit(self.artwork(self.song, art_size), (art_x, art_y))
-        title = self.text(self.song.title, self.font)
-        title_x = (width - title.get_width()) // 2 if portrait else 45
-        self.screen.blit(title, (title_x, art_y + art_size + 25))
+        title_y = art_y + art_size + 25
+        if portrait:
+            self.draw_marquee(
+                self.song.title, self.font, (239, 241, 255),
+                self.portrait_text_rect(title_y, self.font.get_height()),
+            )
+        else:
+            self.screen.blit(self.text(self.song.title, self.font), (45, title_y))
         if self.scorer:
             self.scorer.advance(pos)
             score_y = art_y + art_size + 90 if portrait else height - 190
