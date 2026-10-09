@@ -180,7 +180,9 @@ The Pi parser deliberately consumes only `PRESSED` records, never releases. Flas
 
 During playback the Pi sends `PPR1 MODE PI_GAME` once per second, plus `PPR1 BEAT` and `PPR1 SCORE n` visual-feedback messages. The controller suppresses only its local synth/audio, shows `RHYTHM GAME MODE ACTIVE`, and continues scanning buttons and driving ESP-NOW effects. The Pi sends `PPR1 MODE NORMAL` at results, on exit, and during orderly shutdown. A controller-side three-second heartbeat timeout restores the synth if the Pi crashes or its USB cable is removed.
 
-If the Pi's SDL_mixer cannot directly open an AAC/M4A or another scanned format, playback automatically creates and reuses an Ogg compatibility copy under `.cache/playback`. A corrupt file is reported and skipped instead of terminating the kiosk.
+Playback uses each source file directly and does not create compatibility copies.
+Use MP3 files for reliable playback on the Pi; unreadable files are reported and
+skipped instead of terminating the kiosk.
 
 ## Tests
 

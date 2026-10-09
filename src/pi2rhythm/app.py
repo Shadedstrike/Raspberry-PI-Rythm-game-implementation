@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import math
 import os
-import subprocess
 import sys
 import time
 from dataclasses import replace
@@ -221,35 +219,11 @@ class App:
         source = self.song.resolved_path(self.settings.music_dir)
         try:
             pygame.mixer.music.load(str(source))
-        except pygame.error as original_error:
-            # SDL_mixer builds on older Pi OS often reject AAC/M4A (sometimes
-            # reporting the misleading "XMP: not a module file"). FFmpeg is
-            # already required by the scanner, so make a reusable Ogg playback
-            # copy instead of letting one track terminate the kiosk.
-            try:
-                stat = source.stat()
-                # One stable cache file per source path prevents old conversions
-                # accumulating forever when a track is replaced in place.
-                digest = hashlib.sha1(str(source.resolve()).encode()).hexdigest()[:16]
-                playback = self.settings.cache_dir / "playback" / f"{digest}.ogg"
-                playback.parent.mkdir(parents=True, exist_ok=True)
-                if (not playback.exists() or playback.stat().st_size == 0
-                        or playback.stat().st_mtime_ns < stat.st_mtime_ns):
-                    temporary = playback.with_suffix(".ogg.tmp")
-                    subprocess.run([
-                        "ffmpeg", "-y", "-v", "error", "-i", str(source),
-                        "-map", "a:0", "-vn", "-c:a", "libvorbis", "-q:a", "5",
-                        "-f", "ogg", str(temporary),
-                    ], check=True, timeout=600)
-                    temporary.replace(playback)
-                pygame.mixer.music.load(str(playback))
-                print(f"Playback compatibility copy: {source.name} -> {playback}")
-            except (OSError, subprocess.SubprocessError, pygame.error) as fallback_error:
-                print(f"Skipping unplayable song {source}: {original_error}; fallback failed: {fallback_error}",
-                      file=sys.stderr)
-                self.serial.set_pi_game(False)
-                self.state = "browse"
-                return
+        except pygame.error as exc:
+            print(f"Skipping unplayable song {source}: {exc}", file=sys.stderr)
+            self.serial.set_pi_game(False)
+            self.state = "browse"
+            return
         try:
             pygame.mixer.music.set_volume(self.settings.volume)
             pygame.mixer.music.play()
