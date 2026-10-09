@@ -14,7 +14,7 @@ import pygame
 
 from .config import Settings, load_settings
 from .input_devices import EventQueue, RotaryInput, SerialController
-from .model import Song
+from .model import Song, browser_sort_key
 from .scanner import load_library
 from .scoring import Judgement, ScoreKeeper
 
@@ -109,7 +109,7 @@ def marquee_position(elapsed: float, text_width: int, viewport_width: int,
 class App:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.songs = load_library(settings.library_file)
+        self.songs = sorted(load_library(settings.library_file), key=browser_sort_key)
         if not self.songs:
             raise RuntimeError(f"No songs in {settings.library_file}; run pi2-rhythm-scan first")
         if settings.fullscreen:

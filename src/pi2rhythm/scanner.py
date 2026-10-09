@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 
 from .config import load_settings
-from .model import Song
+from .model import Song, browser_sort_key
 
 ANALYZER_VERSION = 1
 SAMPLE_RATE = 11025
@@ -203,7 +203,7 @@ def scan(music_dir: Path, library_file: Path, cache_dir: Path, force: bool = Fal
         processed.add(key)
         untouched = [song for old_key, song in existing.items() if old_key in valid_keys and old_key not in processed]
         save_library(library_file, songs + untouched)
-    songs.sort(key=lambda song: (song.artist.casefold(), song.album.casefold(), song.title.casefold()))
+    songs.sort(key=browser_sort_key)
     save_library(library_file, songs)
     return songs
 

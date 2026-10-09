@@ -12,6 +12,20 @@ from pi2rhythm.app import (
     kiosk_enabled,
     results_expired,
 )
+from pi2rhythm.model import Song, browser_sort_key
+
+
+def test_browser_places_longer_songs_later_with_deterministic_ties():
+    songs = [
+        Song("long.mp3", "Long", duration=600),
+        Song("short-z.mp3", "Zulu", duration=120),
+        Song("short-a.mp3", "Alpha", duration=120),
+        Song("medium.mp3", "Medium", duration=300),
+    ]
+
+    ordered = sorted(songs, key=browser_sort_key)
+
+    assert [song.title for song in ordered] == ["Alpha", "Zulu", "Medium", "Long"]
 
 
 def test_results_are_shown_for_seven_and_a_half_seconds():

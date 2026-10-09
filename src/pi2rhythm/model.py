@@ -47,3 +47,13 @@ class Song:
                     targets.append(onset)
         targets.sort()
         return [target for index, target in enumerate(targets) if index == 0 or target - targets[index - 1] >= 0.12]
+
+
+def browser_sort_key(song: Song) -> tuple[float, str, str, str]:
+    """Place longer songs later in the browser's scroll order."""
+    return (
+        max(0.0, song.duration),
+        song.artist.casefold(),
+        song.album.casefold(),
+        song.title.casefold(),
+    )
