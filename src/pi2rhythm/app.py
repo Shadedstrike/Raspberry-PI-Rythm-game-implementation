@@ -298,9 +298,10 @@ class App:
         self.draw_background()
         width, height = self.screen.get_size()
         if height > width:
-            # 35% larger than the original 52%-of-width cover.
-            art_size = min(round(width * 0.52 * 1.35), round(width * 0.74))
-            art_y = round(height * 0.15)
+            # 20% larger again than the previously enlarged cover (62% larger
+            # than the original), shifted upward to preserve the text area.
+            art_size = min(round(width * 0.52 * 1.35 * 1.20), round(width * 0.88))
+            art_y = round(height * 0.09)
             self.screen.blit(self.artwork(self.song, art_size), ((width - art_size) // 2, art_y))
             rows = [
                 (self.song.title, self.font_big, (239, 241, 255)),
