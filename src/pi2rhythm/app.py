@@ -85,7 +85,9 @@ class App:
         # Base typography on the shorter axis so portrait screens do not get
         # fonts sized as though their 1920-pixel height were a landscape width.
         ui_scale = min(settings.width, settings.height)
-        self.font_big = pygame.font.Font(None, max(44, ui_scale // 11))
+        big_font_size = max(44, ui_scale // 11)
+        self.font_big = pygame.font.Font(None, big_font_size)
+        self.font_title = pygame.font.Font(None, round(big_font_size * 0.85))
         self.font = pygame.font.Font(None, max(28, ui_scale // 22))
         self.font_small = pygame.font.Font(None, max(22, ui_scale // 30))
         self.grade_font = pygame.font.Font(None, max(96, ui_scale // 3))
@@ -320,7 +322,7 @@ class App:
             art_y = round(height * 0.07)
             self.screen.blit(self.artwork(self.song, art_size), ((width - art_size) // 2, art_y))
             rows = [
-                (self.song.title, self.font_big, (239, 241, 255)),
+                (self.song.title, self.font_title, (239, 241, 255)),
                 (self.song.artist, self.font, (158, 164, 194)),
                 (self.song.album, self.font_small, (117, 124, 158)),
                 (f"{clock_text(self.song.duration)}     {self.song.bpm:.0f} BPM", self.font_small, (239, 241, 255)),
@@ -343,7 +345,10 @@ class App:
         art_size = min(height - 150, width // 2 - 90)
         self.screen.blit(self.artwork(self.song, art_size), (55, (height - art_size) // 2))
         x = art_size + 105
-        self.screen.blit(self.text(self.song.title, self.font_big), (x, height // 4))
+        self.draw_marquee(
+            self.song.title, self.font_title, (239, 241, 255),
+            pygame.Rect(x, height // 4, max(1, width - x - 45), self.font_title.get_height()),
+        )
         self.screen.blit(self.text(self.song.artist, self.font, (158, 164, 194)), (x, height // 4 + 85))
         self.screen.blit(self.text(self.song.album, self.font_small, (117, 124, 158)), (x, height // 4 + 130))
         meta = f"{clock_text(self.song.duration)}     {self.song.bpm:.0f} BPM"
