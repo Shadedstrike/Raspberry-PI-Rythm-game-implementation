@@ -38,7 +38,7 @@ class EventQueue:
 
 class RotaryInput:
     def __init__(self, events: EventQueue, clk: int, dt: int, button: int, bounce_ms: int,
-                 green_led: int, red_led: int, start_button: int | None = None,
+                 green_led: int, red_led: int, blue_led: int, start_button: int | None = None,
                  start_bounce_ms: int = 20):
         try:
             from gpiozero import Button, LED, RotaryEncoder
@@ -48,8 +48,11 @@ class RotaryInput:
         self.button = Button(button, pull_up=True, bounce_time=bounce_ms / 1000.0)
         self.start_button = (Button(start_button, pull_up=True, bounce_time=start_bounce_ms / 1000.0)
                              if start_button is not None else None)
-        self.green_led = LED(green_led)
-        self.red_led = LED(red_led)
+        # The R/G/B/+ side is a common-anode LED: + goes to 3.3 V and GPIOs
+        # sink current, so logical ON is electrically LOW.
+        self.green_led = LED(green_led, active_high=False, initial_value=False)
+        self.red_led = LED(red_led, active_high=False, initial_value=False)
+        self.blue_led = LED(blue_led, active_high=False, initial_value=False)
         self._light_state: tuple[str, bool] | None = None
         self.encoder.when_rotated_clockwise = lambda: events.put("move", 1)
         self.encoder.when_rotated_counter_clockwise = lambda: events.put("move", -1)
@@ -66,15 +69,19 @@ class RotaryInput:
         if state == "browse":
             self.green_led.on()
             self.red_led.off()
+            self.blue_led.off()
         elif state == "play":
             self.green_led.on()
-            self.red_led.on()
+            self.red_led.off()
+            self.blue_led.on()
         elif state == "prompt":
-            self.green_led.value = flash_on
+            self.green_led.off()
             self.red_led.value = flash_on
+            self.blue_led.value = flash_on
         else:
             self.green_led.off()
             self.red_led.on()
+            self.blue_led.off()
 
     def close(self) -> None:
         self.encoder.close()
@@ -83,6 +90,7 @@ class RotaryInput:
             self.start_button.close()
         self.green_led.close()
         self.red_led.close()
+        self.blue_led.close()
 
 
 BUTTON_LINE = re.compile(r"\[BTN\]\s+GPIO\s+(\d+)\s+\(idx\s+(\d+)\)\s+PRESSED")

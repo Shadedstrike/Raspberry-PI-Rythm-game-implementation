@@ -16,12 +16,14 @@ def test_bottom_header_gpio_allocation_and_buttons():
         bounce_ms=0,
         green_led=19,
         red_led=13,
+        blue_led=12,
         start_button=26,
         start_bounce_ms=0,
     )
     try:
         assert controls.green_led.is_lit
         assert not controls.red_led.is_lit
+        assert not controls.blue_led.is_lit
 
         controls.button.pin.drive_low()
         controls.button.pin.drive_high()

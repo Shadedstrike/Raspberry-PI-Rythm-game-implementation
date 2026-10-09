@@ -27,6 +27,7 @@ class Settings:
     encoder_button: int
     encoder_green_led: int
     encoder_red_led: int
+    encoder_blue_led: int
     encoder_bounce_ms: int
     start_button_enabled: bool
     start_button_pin: int
@@ -70,6 +71,7 @@ def load_settings(path: Path) -> Settings:
         encoder_button=int(encoder.get("button", 16)),
         encoder_green_led=int(encoder.get("green_led", 19)),
         encoder_red_led=int(encoder.get("red_led", 13)),
+        encoder_blue_led=int(encoder.get("blue_led", 12)),
         encoder_bounce_ms=int(encoder.get("bounce_ms", 12)),
         start_button_enabled=bool(start_button.get("enabled", True)),
         start_button_pin=int(start_button.get("pin", 26)),
