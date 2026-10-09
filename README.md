@@ -106,6 +106,12 @@ configuration says `fullscreen = false`. Use `--windowed` only for development.
 The current display driver, source path, fullscreen state, and dimensions are
 recorded in `.cache/display-status.log` at every launch.
 
+When the helper scripts are installed beside the repository, they use a nonempty
+`config.toml` beside the scripts as the cabinet override. If that file is missing
+or empty, they use the repository's stock `config.toml`. The updater likewise
+restores only nonempty cabinet configurations, so a zero-byte file can never
+overwrite the stock configuration again.
+
 Controls:
 
 - Encoder turn or arrow keys: previous/next song.

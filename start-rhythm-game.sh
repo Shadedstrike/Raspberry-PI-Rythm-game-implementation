@@ -18,6 +18,18 @@ fi
 
 VENV_DIR="$REPO_DIR/.venv"
 COMMAND="$VENV_DIR/bin/pi2-rhythm"
+CONFIG_FILE="$REPO_DIR/config.toml"
+
+# A nonempty config beside an externally installed helper script is the cabinet
+# override. Missing/empty overrides fall back to the tracked stock config.
+if [ "$SCRIPT_DIR" != "$REPO_DIR" ] && [ -s "$SCRIPT_DIR/config.toml" ]; then
+    CONFIG_FILE="$SCRIPT_DIR/config.toml"
+fi
+
+if [ ! -s "$CONFIG_FILE" ]; then
+    echo "error: no nonempty config; run the updater to restore the stock config" >&2
+    exit 1
+fi
 
 if [ ! -x "$VENV_DIR/bin/python" ]; then
     echo "Creating virtual environment..."
@@ -30,4 +42,4 @@ if [ ! -x "$COMMAND" ]; then
 fi
 
 cd "$REPO_DIR"
-exec "$COMMAND" --config "$REPO_DIR/config.toml" --kiosk "$@"
+exec "$COMMAND" --config "$CONFIG_FILE" --kiosk "$@"
