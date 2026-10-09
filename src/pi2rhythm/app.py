@@ -100,6 +100,7 @@ class App:
         big_font_size = max(44, ui_scale // 11)
         self.font_big = pygame.font.Font(None, big_font_size)
         self.font_title = pygame.font.Font(None, round(big_font_size * 0.85))
+        self.font_score = pygame.font.Font(None, max(22, round(big_font_size * 0.50)))
         self.font = pygame.font.Font(None, max(28, ui_scale // 22))
         self.font_small = pygame.font.Font(None, max(22, ui_scale // 30))
         self.grade_font = pygame.font.Font(None, max(96, ui_scale // 3))
@@ -418,10 +419,11 @@ class App:
         if self.scorer:
             self.scorer.advance(pos)
             score_y = title_y + self.font.get_height() + 35
-            score = self.text(f"{self.scorer.points:07d}", self.font_big)
+            score = self.text(f"{self.scorer.points:07d}", self.font_score)
             self.screen.blit(score, ((width - score.get_width()) // 2 if portrait else 45, score_y))
             combo = self.text(f"COMBO  {self.scorer.combo}     {self.scorer.accuracy:05.1f}%", self.font)
-            self.screen.blit(combo, ((width - combo.get_width()) // 2 if portrait else 45, score_y + 70))
+            combo_y = score_y + score.get_height() + 10
+            self.screen.blit(combo, ((width - combo.get_width()) // 2 if portrait else 45, combo_y))
         if self.last_judgement and time.monotonic() - self.judgement_at < 0.7:
             color = (97, 255, 173) if self.last_judgement.label != "MISS" else (255, 74, 93)
             label = self.text(self.last_judgement.label, self.font_big, color)
