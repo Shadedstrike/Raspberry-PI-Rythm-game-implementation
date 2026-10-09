@@ -41,10 +41,12 @@ if [ -s "$CONFIG_FILE" ]; then
     HAVE_SAVED_CONFIG=true
 fi
 
-# Remove the cabinet-specific tracked edit so it cannot block the pull. The
-# saved copy is restored whether the pull succeeds or fails.
-git -C "$REPO_DIR" restore --source=HEAD -- config.toml
-git -C "$REPO_DIR" pull --ff-only
+# Fetch first, then recover the stock configuration directly from the remote
+# tree. This works even when the local file was deleted, truncated, or the local
+# HEAD predates config.toml. Fast-forward only after the damaged path is clean.
+git -C "$REPO_DIR" fetch origin main
+git -C "$REPO_DIR" restore --source=origin/main -- config.toml
+git -C "$REPO_DIR" merge --ff-only origin/main
 
 if [ "$HAVE_SAVED_CONFIG" = true ]; then
     mv -f -- "$SAVED_CONFIG" "$CONFIG_FILE"

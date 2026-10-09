@@ -110,7 +110,8 @@ When the helper scripts are installed beside the repository, they use a nonempty
 `config.toml` beside the scripts as the cabinet override. If that file is missing
 or empty, they use the repository's stock `config.toml`. The updater likewise
 restores only nonempty cabinet configurations, so a zero-byte file can never
-overwrite the stock configuration again.
+overwrite the stock configuration again. If the repository copy is missing or
+empty, the updater fetches and restores it directly from `origin/main`.
 
 Controls:
 
