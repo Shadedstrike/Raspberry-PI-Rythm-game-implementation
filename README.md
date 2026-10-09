@@ -101,8 +101,10 @@ Analysis is intentionally conservative on RAM: 11.025 kHz mono audio and chunked
 .venv/bin/pi2-rhythm --config config.toml
 ```
 
-Use `./start-rhythm-game.sh` or add `--kiosk` to force native fullscreen even
-when an older preserved cabinet configuration says `fullscreen = false`.
+Native fullscreen kiosk mode is the default, even when an older preserved cabinet
+configuration says `fullscreen = false`. Use `--windowed` only for development.
+The current display driver, source path, fullscreen state, and dimensions are
+recorded in `.cache/display-status.log` at every launch.
 
 Controls:
 

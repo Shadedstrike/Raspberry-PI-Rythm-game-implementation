@@ -38,6 +38,11 @@ def display_size(width: int, height: int, fullscreen: bool) -> tuple[int, int]:
     return (0, 0) if fullscreen else (width, height)
 
 
+def kiosk_enabled(windowed: bool) -> bool:
+    """The cabinet is kiosk-first; windowed mode must be explicitly requested."""
+    return not windowed
+
+
 def pause_phase(elapsed: float) -> str:
     if elapsed >= PAUSE_SECONDS + EXTANT_PROMPT_SECONDS:
         return "expired"
@@ -122,6 +127,20 @@ class App:
             native_width, native_height = self.screen.get_size()
             settings = replace(settings, width=native_width, height=native_height)
             self.settings = settings
+        try:
+            settings.cache_dir.mkdir(parents=True, exist_ok=True)
+            is_fullscreen = (pygame.display.is_fullscreen()
+                             if hasattr(pygame.display, "is_fullscreen") else settings.fullscreen)
+            (settings.cache_dir / "display-status.log").write_text(
+                f"source={Path(__file__).resolve()}\n"
+                f"driver={pygame.display.get_driver()}\n"
+                f"requested_fullscreen={settings.fullscreen}\n"
+                f"reported_fullscreen={is_fullscreen}\n"
+                f"actual_size={self.screen.get_width()}x{self.screen.get_height()}\n",
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            print(f"Display diagnostic unavailable: {exc}", file=sys.stderr)
         pygame.mouse.set_visible(not settings.fullscreen)
         pygame.display.set_caption("Pi 2 Rhythm")
         # Base typography on the shorter axis so portrait screens do not get
@@ -597,12 +616,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Pi 2 rhythm visualizer")
     parser.add_argument("--config", type=Path, default=Path("config.toml"))
     parser.add_argument("--kiosk", action="store_true",
-                        help="force scaled fullscreen regardless of the saved config")
+                        help="deprecated compatibility flag; kiosk is now the default")
+    parser.add_argument("--windowed", action="store_true",
+                        help="explicitly run in a development window")
     args = parser.parse_args()
     try:
         settings = load_settings(args.config)
-        if args.kiosk and not settings.fullscreen:
-            settings = replace(settings, fullscreen=True)
+        settings = replace(settings, fullscreen=kiosk_enabled(args.windowed))
         App(settings).run()
     except (RuntimeError, OSError, pygame.error) as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -49,4 +49,11 @@ mv -f -- "$SAVED_CONFIG" "$CONFIG_FILE"
 RESTORE_NEEDED=false
 rmdir "$TEMP_DIR"
 
+VENV_DIR="$REPO_DIR/.venv"
+if [ -x "$VENV_DIR/bin/pip" ]; then
+    "$VENV_DIR/bin/pip" install -e "$REPO_DIR" --no-deps
+fi
+
 echo "Updated $REPO_DIR and restored config.toml"
+echo "Revision: $(git -C "$REPO_DIR" rev-parse --short HEAD)"
+echo "Launcher: $VENV_DIR/bin/pi2-rhythm"

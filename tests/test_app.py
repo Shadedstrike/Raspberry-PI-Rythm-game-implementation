@@ -9,6 +9,7 @@ from pi2rhythm.app import (
     RESULTS_SECONDS,
     display_flags,
     display_size,
+    kiosk_enabled,
     results_expired,
 )
 
@@ -27,6 +28,8 @@ def test_kiosk_uses_native_fullscreen_without_letterboxing():
     assert not display_flags(True) & pygame.SCALED
     assert display_size(1040, 1920, False) == (1040, 1920)
     assert display_size(1040, 1920, True) == (0, 0)
+    assert kiosk_enabled(False)
+    assert not kiosk_enabled(True)
 
 
 def test_album_art_size_is_shared_layout_size():
