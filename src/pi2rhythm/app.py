@@ -46,6 +46,7 @@ class App:
         pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
         flags = pygame.FULLSCREEN if settings.fullscreen else 0
         self.screen = pygame.display.set_mode((settings.width, settings.height), flags)
+        pygame.mouse.set_visible(not settings.fullscreen)
         pygame.display.set_caption("Pi 2 Rhythm")
         self.font_big = pygame.font.Font(None, max(44, settings.height // 11))
         self.font = pygame.font.Font(None, max(28, settings.height // 22))

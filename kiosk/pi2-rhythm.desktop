@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Pi Rhythm Visualizer
+Comment=Start the cabinet rhythm game in kiosk mode
+Exec=/opt/pi2-rhythm-visualizer/.venv/bin/pi2-rhythm --config /opt/pi2-rhythm-visualizer/config.toml
+Path=/opt/pi2-rhythm-visualizer
+Terminal=false
+X-GNOME-Autostart-enabled=true

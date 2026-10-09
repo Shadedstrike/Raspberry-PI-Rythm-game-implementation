@@ -66,6 +66,18 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -e . --no-deps
 ```
 
+When transferring by flash drive, copy the **entire** project directory—not only
+the `src` folder. Raspberry Pi OS normally mounts the drive below
+`/media/<your-user>/<drive-name>`. For example:
+
+```sh
+sudo cp -a /media/<your-user>/<drive-name>/pi2-rhythm-visualizer /opt/
+sudo chown -R <your-user>:<your-user> /opt/pi2-rhythm-visualizer
+```
+
+Substitute the actual username and mounted drive/folder names. Then run the install
+commands above from `/opt/pi2-rhythm-visualizer`.
+
 Edit `config.toml`, especially `music_dir`. A convenient SD layout is:
 
 ```text
@@ -105,13 +117,29 @@ the same song immediately. With no activity, `ARE YOU STILL EXTANT???` flashes f
 10 more seconds; after 40 total seconds the game stops the song, restores the
 controller synth, and returns to the browser.
 
-For kiosk boot, adjust `User=` and paths in `systemd/pi2-rhythm.service`, then:
+## Kiosk startup
+
+Use Raspberry Pi OS **Desktop Autologin**. This starts pygame only after the display
+and per-user audio session exist; a system daemon can race those services and open
+with no screen or sound.
+
+1. Run `sudo raspi-config`.
+2. Select **System Options → Boot / Auto Login → Desktop Autologin**.
+3. Disable screen blanking under **Display Options → Screen Blanking**.
+4. Install the included desktop autostart entry for the user that logs in:
 
 ```sh
-sudo cp systemd/pi2-rhythm.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now pi2-rhythm.service
+mkdir -p ~/.config/autostart
+cp /opt/pi2-rhythm-visualizer/kiosk/pi2-rhythm.desktop ~/.config/autostart/
 ```
+
+Ensure `[display] fullscreen = true` in `config.toml`, reboot, and the visualizer
+will cover the desktop and hide the mouse cursor automatically. The desktop entry
+expects the project at `/opt/pi2-rhythm-visualizer`; edit its `Exec` and `Path` if
+you choose another location.
+
+The file under `systemd/` is retained for custom X11 installations, but desktop
+autostart is the supported Raspberry Pi OS kiosk method.
 
 ## Controller notes
 
