@@ -141,6 +141,29 @@ you choose another location.
 The file under `systemd/` is retained for custom X11 installations, but desktop
 autostart is the supported Raspberry Pi OS kiosk method.
 
+### Portrait CRT aperture
+
+The supplied configuration is set up for a 7-inch 1080p panel rotated right into
+portrait orientation, with the top of the panel aligned to the top of the round
+CRT opening and about one inch extending below its lower lip:
+
+```toml
+[display]
+width = 1080
+height = 1920
+fullscreen = true
+aperture_enabled = true
+panel_diagonal_inches = 7.0
+bottom_overhang_inches = 1.0
+```
+
+Set the HDMI display rotation to **right** in Raspberry Pi OS before launching the
+game, so pygame reports a 1080×1920 desktop. The game derives a top-aligned circular
+mask from the panel dimensions, keeps the portrait UI inside the opening, and puts
+the progress bar across a safe chord near the bottom. Adjust
+`bottom_overhang_inches` after measuring the installed panel; increasing it makes
+the visible circle smaller. Set `aperture_enabled = false` to use the whole panel.
+
 ## Controller notes
 
 The Pi parser deliberately consumes only `PRESSED` records, never releases. Flash the matching controller firmware containing `pi_link.cpp`, keep USB serial at 115200 baud, and do not open a second serial monitor at the same time. Button input still uses the controller's existing debug records; a future protocol revision can replace those with compact versioned button packets.

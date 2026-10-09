@@ -31,6 +31,25 @@ def progress_pixels(width: int, position: float, duration: float) -> int:
     return round(width * progress)
 
 
+def aperture_geometry(width: int, height: int, diagonal_inches: float,
+                      bottom_overhang_inches: float) -> tuple[int, int, int]:
+    """Return center-x, center-y and radius for a top-aligned round opening."""
+    panel_height_inches = diagonal_inches * height / math.hypot(width, height)
+    visible_inches = max(0.5, panel_height_inches - bottom_overhang_inches)
+    diameter_px = min(height, round(height * visible_inches / panel_height_inches))
+    radius = max(1, diameter_px // 2)
+    return width // 2, radius, radius
+
+
+def aperture_chord(center_x: int, center_y: int, radius: int, y: int,
+                   screen_width: int) -> tuple[int, int]:
+    dy = y - center_y
+    if abs(dy) >= radius:
+        return center_x, center_x
+    half = math.sqrt(max(0.0, radius * radius - dy * dy))
+    return max(0, round(center_x - half)), min(screen_width, round(center_x + half))
+
+
 def clock_text(seconds: float) -> str:
     seconds = max(0, round(seconds))
     return f"{seconds // 60}:{seconds % 60:02d}"
@@ -48,12 +67,20 @@ class App:
         self.screen = pygame.display.set_mode((settings.width, settings.height), flags)
         pygame.mouse.set_visible(not settings.fullscreen)
         pygame.display.set_caption("Pi 2 Rhythm")
-        self.font_big = pygame.font.Font(None, max(44, settings.height // 11))
-        self.font = pygame.font.Font(None, max(28, settings.height // 22))
-        self.font_small = pygame.font.Font(None, max(22, settings.height // 30))
-        self.grade_font = pygame.font.Font(None, settings.height // 3)
+        # Base typography on the shorter axis so portrait screens do not get
+        # fonts sized as though their 1920-pixel height were a landscape width.
+        ui_scale = min(settings.width, settings.height)
+        self.font_big = pygame.font.Font(None, max(44, ui_scale // 11))
+        self.font = pygame.font.Font(None, max(28, ui_scale // 22))
+        self.font_small = pygame.font.Font(None, max(22, ui_scale // 30))
+        self.grade_font = pygame.font.Font(None, max(96, ui_scale // 3))
         self.pause_veil = pygame.Surface((settings.width, settings.height), pygame.SRCALPHA)
         self.pause_veil.fill((4, 5, 14, 176))
+        self.aperture = aperture_geometry(
+            settings.width, settings.height, settings.panel_diagonal_inches,
+            settings.bottom_overhang_inches,
+        )
+        self.aperture_mask = self._make_aperture_mask() if settings.aperture_enabled else None
         self.clock = pygame.time.Clock()
         self.events = EventQueue()
         self.rotary = None
@@ -84,6 +111,20 @@ class App:
     @property
     def song(self) -> Song:
         return self.songs[self.index]
+
+    def _make_aperture_mask(self) -> pygame.Surface:
+        width, height = self.screen.get_size()
+        center_x, center_y, radius = self.aperture
+        mask = pygame.Surface((width, height))
+        mask.fill((0, 0, 0))
+        transparent_key = (1, 2, 3)
+        pygame.draw.circle(mask, transparent_key, (center_x, center_y), radius)
+        mask.set_colorkey(transparent_key)
+        return mask
+
+    def apply_aperture_mask(self) -> None:
+        if self.aperture_mask:
+            self.screen.blit(self.aperture_mask, (0, 0))
 
     def position(self) -> float:
         if self.state in ("paused", "prompt"):
@@ -215,6 +256,25 @@ class App:
     def draw_browser(self) -> None:
         self.draw_background()
         width, height = self.screen.get_size()
+        if height > width:
+            art_size = min(round(width * 0.52), 500)
+            art_y = round(height * 0.20)
+            self.screen.blit(self.artwork(self.song, art_size), ((width - art_size) // 2, art_y))
+            rows = [
+                (self.song.title, self.font_big, (239, 241, 255)),
+                (self.song.artist, self.font, (158, 164, 194)),
+                (self.song.album, self.font_small, (117, 124, 158)),
+                (f"{clock_text(self.song.duration)}     {self.song.bpm:.0f} BPM", self.font, (239, 241, 255)),
+                (f"DIFFICULTY  {self.song.difficulty} / 9", self.font, (252, 93, 165)),
+                (f"{self.index + 1} / {len(self.songs)}", self.font_small, (239, 241, 255)),
+                ("TURN TO BROWSE  •  PRESS TO PLAY", self.font_small, (100, 218, 255)),
+            ]
+            y = art_y + art_size + 55
+            for value, font, color in rows:
+                surface = self.text(value, font, color)
+                self.screen.blit(surface, ((width - surface.get_width()) // 2, y))
+                y += surface.get_height() + 28
+            return
         art_size = min(height - 150, width // 2 - 90)
         self.screen.blit(self.artwork(self.song, art_size), (55, (height - art_size) // 2))
         x = art_size + 105
@@ -232,42 +292,57 @@ class App:
         pulse = 0.5 + 0.5 * math.sin(pos * math.tau * self.song.bpm / 60.0)
         self.draw_background(pulse)
         width, height = self.screen.get_size()
-        lane_x = width * 0.70
-        hit_y = height * 0.78
+        portrait = height > width
+        lane_x = width * (0.50 if portrait else 0.70)
+        hit_y = height * (0.72 if portrait else 0.78)
         pygame.draw.line(self.screen, (98, 218, 255), (lane_x - 115, hit_y), (lane_x + 115, hit_y), 5)
         for target in self.play_targets:
             delta = target - pos
             if -0.15 <= delta <= 2.4:
-                y = hit_y - delta / 2.4 * (height * 0.66)
+                lane_height = height * (0.42 if portrait else 0.66)
+                y = hit_y - delta / 2.4 * lane_height
                 radius = 14 + round(5 * max(0, 1 - abs(delta) * 2))
                 pygame.draw.circle(self.screen, (252, 93, 165), (round(lane_x), round(y)), radius)
-        art_size = min(310, height // 2)
-        self.screen.blit(self.artwork(self.song, art_size), (45, 55))
-        self.screen.blit(self.text(self.song.title, self.font), (45, 80 + art_size))
+        art_size = min(300 if portrait else 310, height // 2)
+        art_x = (width - art_size) // 2 if portrait else 45
+        art_y = round(height * 0.16) if portrait else 55
+        self.screen.blit(self.artwork(self.song, art_size), (art_x, art_y))
+        title = self.text(self.song.title, self.font)
+        title_x = (width - title.get_width()) // 2 if portrait else 45
+        self.screen.blit(title, (title_x, art_y + art_size + 25))
         if self.scorer:
             self.scorer.advance(pos)
-            self.screen.blit(self.text(f"{self.scorer.points:07d}", self.font_big), (45, height - 190))
-            self.screen.blit(self.text(f"COMBO  {self.scorer.combo}", self.font), (45, height - 115))
-            self.screen.blit(self.text(f"{self.scorer.accuracy:05.1f}%", self.font), (300, height - 115))
+            score_y = art_y + art_size + 90 if portrait else height - 190
+            score = self.text(f"{self.scorer.points:07d}", self.font_big)
+            self.screen.blit(score, ((width - score.get_width()) // 2 if portrait else 45, score_y))
+            combo = self.text(f"COMBO  {self.scorer.combo}     {self.scorer.accuracy:05.1f}%", self.font)
+            self.screen.blit(combo, ((width - combo.get_width()) // 2 if portrait else 45, score_y + 70))
         if self.last_judgement and time.monotonic() - self.judgement_at < 0.7:
             color = (97, 255, 173) if self.last_judgement.label != "MISS" else (255, 74, 93)
             label = self.text(self.last_judgement.label, self.font_big, color)
             self.screen.blit(label, (lane_x - label.get_width() / 2, hit_y + 45))
-        bar_height = max(16, height // 32)
-        bar_y = height - bar_height
-        pygame.draw.rect(self.screen, (26, 29, 48), (0, bar_y, width, bar_height))
-        filled_width = progress_pixels(width, pos, self.song.duration)
+        bar_height = max(16, height // 48 if portrait else height // 32)
+        if portrait and self.settings.aperture_enabled:
+            center_x, center_y, radius = self.aperture
+            bar_y = center_y + radius - max(90, round(height * 0.06))
+            bar_left, bar_right = aperture_chord(center_x, center_y, radius, bar_y, width)
+        else:
+            bar_y = height - bar_height
+            bar_left, bar_right = 0, width
+        bar_width = max(0, bar_right - bar_left)
+        pygame.draw.rect(self.screen, (26, 29, 48), (bar_left, bar_y, bar_width, bar_height))
+        filled_width = progress_pixels(bar_width, pos, self.song.duration)
         if filled_width > 0:
             stripe_width = max(18, width // 55)
             cyan = (43, 235, 255)
             purple = (218, 48, 255)
             clip_before = self.screen.get_clip()
-            self.screen.set_clip(pygame.Rect(0, bar_y, filled_width, bar_height))
-            for stripe_x in range(-bar_height, filled_width + bar_height, stripe_width):
+            self.screen.set_clip(pygame.Rect(bar_left, bar_y, filled_width, bar_height))
+            for stripe_x in range(bar_left - bar_height, bar_left + filled_width + bar_height, stripe_width):
                 color = cyan if ((stripe_x // stripe_width) & 1) == 0 else purple
                 pygame.draw.polygon(self.screen, color, [
-                    (stripe_x, height),
-                    (stripe_x + stripe_width, height),
+                    (stripe_x, bar_y + bar_height),
+                    (stripe_x + stripe_width, bar_y + bar_height),
                     (stripe_x + stripe_width + bar_height, bar_y),
                     (stripe_x + bar_height, bar_y),
                 ])
@@ -304,16 +379,21 @@ class App:
         width, height = self.screen.get_size()
         points, hits, misses, accuracy = self.final_stats or (0, 0, 0, 0.0)
         grade = "A" if accuracy >= 93 else "B" if accuracy >= 85 else "C" if accuracy >= 75 else "D" if accuracy >= 60 else "F"
+        portrait = height > width
         title = self.text("RESULTS", self.font_big, (100, 218, 255))
-        self.screen.blit(title, ((width - title.get_width()) // 2, 70))
+        title_y = round(height * 0.20) if portrait else 70
+        self.screen.blit(title, ((width - title.get_width()) // 2, title_y))
         grade_surface = self.grade_font.render(grade, True, (252, 93, 165))
-        self.screen.blit(grade_surface, ((width - grade_surface.get_width()) // 2, 145))
+        grade_y = round(height * 0.27) if portrait else 145
+        self.screen.blit(grade_surface, ((width - grade_surface.get_width()) // 2, grade_y))
         lines = [f"SCORE  {points:07d}", f"HITS  {hits}     MISSES  {misses}", f"ACCURACY  {accuracy:.1f}%"]
+        lines_y = round(height * 0.55) if portrait else height // 2
         for number, line in enumerate(lines):
             surface = self.text(line, self.font)
-            self.screen.blit(surface, ((width - surface.get_width()) // 2, height // 2 + number * 58))
+            self.screen.blit(surface, ((width - surface.get_width()) // 2, lines_y + number * 58))
         prompt = self.text("PRESS TO RETURN", self.font_small, (100, 218, 255))
-        self.screen.blit(prompt, ((width - prompt.get_width()) // 2, height - 70))
+        prompt_y = self.aperture[1] + self.aperture[2] - 150 if portrait and self.settings.aperture_enabled else height - 70
+        self.screen.blit(prompt, ((width - prompt.get_width()) // 2, prompt_y))
 
     def run(self) -> None:
         running = True
@@ -333,6 +413,7 @@ class App:
                         self.state,
                         flash_on=(int(time.monotonic() * 2) % 2 == 0),
                     )
+                self.apply_aperture_mask()
                 pygame.display.flip()
                 self.clock.tick(self.settings.fps)
         finally:

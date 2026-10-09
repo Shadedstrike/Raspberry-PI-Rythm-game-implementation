@@ -1,4 +1,4 @@
-from pi2rhythm.app import pause_phase, progress_pixels
+from pi2rhythm.app import aperture_chord, aperture_geometry, pause_phase, progress_pixels
 
 
 def test_pause_timeline_boundaries():
@@ -14,3 +14,19 @@ def test_progress_width_tracks_song_percentage():
     assert progress_pixels(1280, 99, 100) == 1267
     assert progress_pixels(1280, 100, 100) == 1280
     assert progress_pixels(1280, 150, 100) == 1280
+
+
+def test_seven_inch_portrait_aperture_is_top_aligned():
+    center_x, center_y, radius = aperture_geometry(1080, 1920, 7.0, 1.0)
+
+    assert center_x == 540
+    assert center_y == radius
+    assert 795 <= radius <= 810
+    assert center_y + radius < 1920
+
+
+def test_aperture_chord_is_clipped_to_screen_width():
+    center_x, center_y, radius = aperture_geometry(1080, 1920, 7.0, 1.0)
+
+    assert aperture_chord(center_x, center_y, radius, center_y, 1080) == (0, 1080)
+    assert aperture_chord(center_x, center_y, radius, 0, 1080) == (center_x, center_x)

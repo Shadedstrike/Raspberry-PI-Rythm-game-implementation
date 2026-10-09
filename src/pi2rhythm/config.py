@@ -18,6 +18,9 @@ class Settings:
     height: int
     fullscreen: bool
     fps: int
+    aperture_enabled: bool
+    panel_diagonal_inches: float
+    bottom_overhang_inches: float
     volume: float
     serial_port: str
     serial_baud: int
@@ -62,6 +65,9 @@ def load_settings(path: Path) -> Settings:
         height=int(display.get("height", 720)),
         fullscreen=bool(display.get("fullscreen", False)),
         fps=int(display.get("fps", 60)),
+        aperture_enabled=bool(display.get("aperture_enabled", True)),
+        panel_diagonal_inches=float(display.get("panel_diagonal_inches", 7.0)),
+        bottom_overhang_inches=float(display.get("bottom_overhang_inches", 1.0)),
         volume=float(audio.get("volume", 0.85)),
         serial_port=str(serial.get("port", "auto")),
         serial_baud=int(serial.get("baud", 115200)),

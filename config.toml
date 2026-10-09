@@ -4,10 +4,13 @@ library_file = "library.json"
 cache_dir = ".cache"
 
 [display]
-width = 1280
-height = 720
+width = 1080
+height = 1920
 fullscreen = true
-fps = 60
+fps = 30
+aperture_enabled = true
+panel_diagonal_inches = 7.0
+bottom_overhang_inches = 1.0
 
 [audio]
 volume = 0.85
