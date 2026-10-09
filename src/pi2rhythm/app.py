@@ -32,6 +32,18 @@ def progress_pixels(width: int, position: float, duration: float) -> int:
     return round(width * progress)
 
 
+def album_art_size(width: int, height: int) -> int:
+    """Use one album-art size in both the browser and playback screens."""
+    if height > width:
+        return min(round(width * 0.52 * 1.35 * 1.20), round(width * 0.88))
+    return min(height - 150, width // 2 - 90)
+
+
+def grade_for_accuracy(accuracy: float) -> str:
+    """Return a results grade, bottoming out at C."""
+    return "A" if accuracy >= 93 else "B" if accuracy >= 85 else "C"
+
+
 def aperture_geometry(width: int, height: int, diagonal_inches: float,
                       bottom_overhang_inches: float) -> tuple[int, int, int]:
     """Return center-x, center-y and radius for a top-aligned round opening."""
@@ -317,7 +329,7 @@ class App:
         if height > width:
             # 20% larger again than the previously enlarged cover (62% larger
             # than the original), shifted upward to preserve the text area.
-            art_size = min(round(width * 0.52 * 1.35 * 1.20), round(width * 0.88))
+            art_size = album_art_size(width, height)
             # Lift the artwork and browser stack for the portrait display.
             art_y = round(height * 0.07)
             self.screen.blit(self.artwork(self.song, art_size), ((width - art_size) // 2, art_y))
@@ -342,7 +354,7 @@ class App:
                     self.screen.blit(surface, ((width - surface.get_width()) // 2, y))
                 y += surface.get_height() + (8 if number == 3 else 18)
             return
-        art_size = min(height - 150, width // 2 - 90)
+        art_size = album_art_size(width, height)
         self.screen.blit(self.artwork(self.song, art_size), (55, (height - art_size) // 2))
         x = art_size + 105
         self.draw_marquee(
@@ -365,18 +377,37 @@ class App:
         portrait = height > width
         lane_x = width * (0.50 if portrait else 0.70)
         hit_y = height * (0.72 if portrait else 0.78)
-        art_size = min(300 if portrait else 310, height // 2)
+        art_size = album_art_size(width, height)
         art_x = (width - art_size) // 2 if portrait else 45
         art_y = round(height * 0.16) if portrait else 55
         self.screen.blit(self.artwork(self.song, art_size), (art_x, art_y))
         bar_y = art_y + art_size + 6
-        bar_height = max(4, min(8, art_size // 50))
+        bar_height = max(14, min(22, art_size // 32))
         pygame.draw.rect(self.screen, (55, 16, 22), (art_x, bar_y, art_size, bar_height))
         filled_width = progress_pixels(art_size, pos, self.song.duration)
         if filled_width > 0:
-            pygame.draw.rect(self.screen, (230, 34, 51),
-                             (art_x, bar_y, filled_width, bar_height))
-        title_y = bar_y + bar_height + 19
+            stripe_width = max(12, art_size // 28)
+            clip_before = self.screen.get_clip()
+            self.screen.set_clip(pygame.Rect(art_x, bar_y, filled_width, bar_height))
+            for stripe_x in range(art_x - bar_height,
+                                  art_x + filled_width + bar_height, stripe_width):
+                color = (230, 34, 51) if ((stripe_x - art_x) // stripe_width) % 2 == 0 \
+                    else (155, 52, 210)
+                pygame.draw.polygon(self.screen, color, [
+                    (stripe_x, bar_y + bar_height),
+                    (stripe_x + stripe_width, bar_y + bar_height),
+                    (stripe_x + stripe_width + bar_height, bar_y),
+                    (stripe_x + bar_height, bar_y),
+                ])
+            self.screen.set_clip(clip_before)
+        time_text = self.text(
+            f"{clock_text(pos)} / {clock_text(self.song.duration)}",
+            self.font_small,
+            (239, 241, 255),
+        )
+        time_y = bar_y + bar_height + 6
+        self.screen.blit(time_text, (art_x + art_size - time_text.get_width(), time_y))
+        title_y = time_y + time_text.get_height() + 8
         if portrait:
             self.draw_marquee(
                 self.song.title, self.font, (239, 241, 255),
@@ -386,7 +417,7 @@ class App:
             self.screen.blit(self.text(self.song.title, self.font), (45, title_y))
         if self.scorer:
             self.scorer.advance(pos)
-            score_y = art_y + art_size + 90 if portrait else height - 190
+            score_y = title_y + self.font.get_height() + 35
             score = self.text(f"{self.scorer.points:07d}", self.font_big)
             self.screen.blit(score, ((width - score.get_width()) // 2 if portrait else 45, score_y))
             combo = self.text(f"COMBO  {self.scorer.combo}     {self.scorer.accuracy:05.1f}%", self.font)
@@ -429,7 +460,7 @@ class App:
         self.draw_background()
         width, height = self.screen.get_size()
         points, hits, misses, accuracy = self.final_stats or (0, 0, 0, 0.0)
-        grade = "A" if accuracy >= 93 else "B" if accuracy >= 85 else "C" if accuracy >= 75 else "D" if accuracy >= 60 else "F"
+        grade = grade_for_accuracy(accuracy)
         portrait = height > width
         title = self.text("RESULTS", self.font_big, (100, 218, 255))
         title_y = round(height * 0.20) if portrait else 70

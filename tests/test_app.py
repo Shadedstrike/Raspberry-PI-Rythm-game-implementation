@@ -1,10 +1,23 @@
 from pi2rhythm.app import (
+    album_art_size,
     aperture_chord,
     aperture_geometry,
+    grade_for_accuracy,
     marquee_position,
     pause_phase,
     progress_pixels,
 )
+
+
+def test_album_art_size_is_shared_layout_size():
+    assert album_art_size(1040, 1920) == 876
+    assert album_art_size(1280, 720) == 550
+
+
+def test_results_grade_bottoms_out_at_c():
+    assert grade_for_accuracy(100) == "A"
+    assert grade_for_accuracy(90) == "B"
+    assert grade_for_accuracy(0) == "C"
 
 
 def test_pause_timeline_boundaries():
