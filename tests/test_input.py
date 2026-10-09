@@ -8,6 +8,18 @@ def test_controller_press_line():
     assert event.value == 0
 
 
+def test_priority_controller_button_protocol():
+    event = parse_controller_line("PPR1 BTN 9\n")
+    assert event is not None
+    assert event.kind == "tap"
+    assert event.value == 9
+
+
+def test_priority_controller_button_protocol_rejects_invalid_indexes():
+    assert parse_controller_line("PPR1 BTN 10") is None
+    assert parse_controller_line("noise PPR1 BTN 2") is None
+
+
 def test_release_and_noise_are_ignored():
     assert parse_controller_line("[BTN] GPIO 38 (idx 0) RELEASED") is None
     assert parse_controller_line("[INPUT] worst poll gap 2ms") is None

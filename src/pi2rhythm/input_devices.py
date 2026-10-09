@@ -104,9 +104,14 @@ class RotaryInput:
 
 
 BUTTON_LINE = re.compile(r"\[BTN\]\s+GPIO\s+(\d+)\s+\(idx\s+(\d+)\)\s+PRESSED")
+BUTTON_PROTOCOL_LINE = re.compile(r"^PPR1 BTN (\d+)$")
 
 
 def parse_controller_line(line: str) -> InputEvent | None:
+    protocol_match = BUTTON_PROTOCOL_LINE.match(line.strip())
+    if protocol_match:
+        index = int(protocol_match.group(1))
+        return InputEvent("tap", index) if 0 <= index < 10 else None
     match = BUTTON_LINE.search(line)
     return InputEvent("tap", int(match.group(2))) if match else None
 

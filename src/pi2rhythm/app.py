@@ -486,10 +486,20 @@ class App:
             )
         else:
             self.screen.blit(self.text(self.song.title, self.font), (45, title_y))
+        artist_y = title_y + self.font.get_height() + 8
+        artist = self.text(self.song.artist, self.font_small, (158, 164, 194))
+        artist_rect = (
+            self.portrait_text_rect(artist_y, artist.get_height())
+            if portrait
+            else pygame.Rect(45, artist_y, max(1, width - 90), artist.get_height())
+        )
+        self.draw_marquee(
+            self.song.artist, self.font_small, (158, 164, 194), artist_rect,
+        )
         if self.scorer:
             self.scorer.advance(pos)
             self.serial.set_performance(self.scorer.accuracy)
-            score_y = title_y + self.font.get_height() + 35
+            score_y = artist_y + artist.get_height() + 22
             score = self.text(f"{self.scorer.points:07d}", self.font_score)
             self.screen.blit(score, ((width - score.get_width()) // 2 if portrait else 45, score_y))
             combo = self.text(f"COMBO  {self.scorer.combo}     {self.scorer.accuracy:05.1f}%", self.font)

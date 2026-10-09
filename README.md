@@ -8,7 +8,9 @@ A lightweight Raspberry Pi song carousel and rhythm game for a 200+ track SD-car
 - Offline/incremental scan of MP3, FLAC, M4A, AAC, OGG, WAV, and Opus files.
 - Bass/kick targets plus mid-band analysis, embedded/folder artwork extraction, metadata, BPM, and computed difficulty. Easy charts follow bass; difficulty 4+ progressively adds separated synth/mid accents.
 - One-to-one hit judging with difficulty-sensitive timing windows, score, combo, misses, accuracy, and grade.
-- Existing controller compatibility over USB serial. The current PlatformIO firmware emits lines like `[BTN] GPIO 38 (idx 0) PRESSED`; all ten button presses count as taps.
+- Prioritized controller input over USB serial. Current firmware emits buffered
+  `PPR1 BTN n` records; legacy `[BTN] GPIO 38 (idx 0) PRESSED` records remain
+  accepted, and all ten button presses count as taps.
 - Bidirectional `PPR1` mode control: song playback mutes the controller synth while buttons, LEDs, and ESP-NOW remain active; normal synth mode is restored on exit or within three seconds of a lost Pi heartbeat.
 - Controller beat flashes and red-to-green front-button performance feedback during Pi playback.
 - Results remain on screen for 7.5 seconds, then return automatically to the same carousel selection.
@@ -176,7 +178,10 @@ the visible circle smaller. Set `aperture_enabled = false` to use the whole pane
 
 ## Controller notes
 
-The Pi parser deliberately consumes only `PRESSED` records, never releases. Flash the matching controller firmware containing `pi_link.cpp`, keep USB serial at 115200 baud, and do not open a second serial monitor at the same time. Button input still uses the controller's existing debug records; a future protocol revision can replace those with compact versioned button packets.
+The Pi parser consumes prioritized `PPR1 BTN n` records and never treats releases
+as gameplay input. Flash the matching controller firmware containing `pi_link.cpp`,
+keep USB serial at 115200 baud, and do not open a second serial monitor at the same
+time. Legacy controller debug records remain accepted for backward compatibility.
 
 During playback the Pi sends `PPR1 MODE PI_GAME` once per second, plus `PPR1 BEAT` and `PPR1 SCORE n` visual-feedback messages. The controller suppresses only its local synth/audio, shows `RHYTHM GAME MODE ACTIVE`, and continues scanning buttons and driving ESP-NOW effects. The Pi sends `PPR1 MODE NORMAL` at results, on exit, and during orderly shutdown. A controller-side three-second heartbeat timeout restores the synth if the Pi crashes or its USB cable is removed.
 
